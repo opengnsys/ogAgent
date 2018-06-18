@@ -26,26 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""
+'''
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-"""
-# pylint: disable=unused-wildcard-import,wildcard-import
-
+'''
 from __future__ import unicode_literals
-import sys
-import os
-
-# Importing platform operations and getting operating system data.
-if sys.platform == 'win32':
-    from .windows.operations import *  # @UnusedWildImport
-    os_type = 'Windows'
-    os_version = getWindowsVersion()
-else:
-    if sys.platform == 'darwin':
-        from .macos.operations import *  # @UnusedWildImport
-        os_type = 'MacOS'
-        os_version = getMacosVersion().replace(',', '')
-    else:
-        from .linux.operations import *  # @UnusedWildImport
-        os_type = 'Linux'
-        os_version = getLinuxVersion()
