@@ -49,7 +49,7 @@ else:
         if os.path.exists('/scripts/oginit'):
             from .oglive.operations import *  # @UnusedWildImport
             os_type = 'ogLive'
-            os_version = get_oglive_version().replace(',', '')
+            os_version = get_oglive_version()
         else:
             from .linux.operations import *  # @UnusedWildImport
             os_type = 'Linux'
