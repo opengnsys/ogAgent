@@ -34,9 +34,6 @@ from __future__ import unicode_literals
 import socket
 import platform
 import fcntl
-import os
-import ctypes  # @UnusedImport
-import ctypes.util
 import subprocess
 import struct
 import array
