@@ -30,20 +30,20 @@
 """
 from __future__ import unicode_literals
 
-import threading
 import os
-import platform
-import time
 import random
 import shutil
 import string
+import threading
+import time
 import urllib
 
-from opengnsys.workers import ServerWorker
-from opengnsys import REST, RESTError
+from opengnsys import REST
 from opengnsys import operations
 from opengnsys.log import logger
 from opengnsys.scriptThread import ScriptExecutorThread
+from opengnsys.workers import ServerWorker
+
 
 
 # Check authorization header decorator
@@ -313,3 +313,17 @@ class OpenGnSysWorker(ServerWorker):
 
     def process_client_popup(self, params):
         self.REST.sendMessage('popup_done', params)
+
+    def process_getconfig(self, path, get_params, post_params, server):
+        """
+        Returns client configuration
+        :param path:
+        :param get_params:
+        :param post_params:
+        :param server:
+        :return: object
+        """
+        logger.debug('Recieved getconfig operation')
+        self.checkSecret(server)
+        # Returns raw data
+        return {'config': operations.get_disk_config()}

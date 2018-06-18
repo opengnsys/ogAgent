@@ -27,7 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
-@author: Adolfo Gómez, dkmaster at dkmon dot com
+@author: Ramón M. Gómez, ramongomez at us dot es
 """
 # pylint: disable=unused-wildcard-import,wildcard-import
 
@@ -46,6 +46,11 @@ else:
         os_type = 'MacOS'
         os_version = getMacosVersion().replace(',', '')
     else:
-        from .linux.operations import *  # @UnusedWildImport
-        os_type = 'Linux'
-        os_version = getLinuxVersion()
+        if os.path.exists('/scripts/oginit'):
+            from .oglive.operations import *  # @UnusedWildImport
+            os_type = 'ogLive'
+            os_version = get_oglive_version()
+        else:
+            from .linux.operations import *  # @UnusedWildImport
+            os_type = 'Linux'
+            os_version = getLinuxVersion().replace(',', '')
