@@ -30,20 +30,20 @@
 """
 from __future__ import unicode_literals
 
-import threading
 import os
-import platform
-import time
 import random
 import shutil
 import string
+import threading
+import time
 import urllib
 
-from opengnsys.workers import ServerWorker
-from opengnsys import REST, RESTError
+from opengnsys import REST
 from opengnsys import operations
 from opengnsys.log import logger
 from opengnsys.scriptThread import ScriptExecutorThread
+from opengnsys.workers import ServerWorker
+
 
 
 # Check authorization header decorator
@@ -76,12 +76,38 @@ def catch_background_error(fnc):
     return wrapper
 
 
+def check_locked_partition(sync=False):
+    """
+    Decorator to check if a partition is locked
+    """
+    def outer(fnc):
+        def wrapper(*args, **kwargs):
+            part_id = 'None'
+            try:
+                this, path, get_params, post_params = args  # @UnusedVariable
+                part_id = post_params['disk'] + post_params['part']
+                if this.locked.get(part_id, False):
+                    this.locked[part_id] = True
+                    fnc(*args, **kwargs)
+                else:
+                    return 'partition locked'
+            except Exception as e:
+                this.locked[part_id] = False
+                return 'error {}'.format(e)
+            finally:
+                if sync is True:
+                    this.locked[part_id] = False
+            logger.debug('Lock status: {} {}'.format(fnc, this.locked))
+        return wrapper
+    return outer
+
+
 class OpenGnSysWorker(ServerWorker):
     name = 'opengnsys'
     interface = None  # Bound interface for OpenGnsys
     REST = None  # REST object
     logged_in = False  # User session flag
-    locked = {}
+    locked = {}       # Locked partitions
     random = None     # Random string for secure connections
     length = 32       # Random string length
 
@@ -92,6 +118,7 @@ class OpenGnSysWorker(ServerWorker):
         t = 0
         # Generate random secret to send on activation
         self.random = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(self.length))
+        self.cmd = None
         # Ensure cfg has required configuration variables or an exception will be thrown
         url = self.service.config.get('opengnsys', 'remote')
         self.REST = REST(url)
@@ -213,23 +240,15 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
-        res = {'status': '', 'loggedin': self.logged_in}
-        if platform.system() == 'Linux':        # GNU/Linux
-            # Check if it's OpenGnsys Client.
-            if os.path.exists('/scripts/oginit'):
-                # Check if OpenGnsys Client is busy.
-                if self.locked:
-                    res['status'] = 'BSY'
-                else:
-                    res['status'] = 'OPG'
-            else:
-                # Check if there is an active session.
-                res['status'] = 'LNX'
-        elif platform.system() == 'Windows':    # Windows
-            # Check if there is an active session.
-            res['status'] = 'WIN'
-        elif platform.system() == 'Darwin':     # Mac OS X  ??
-            res['status'] = 'OSX'
+        st = {'linux': 'LNX', 'macos': 'OSX', 'oglive': 'OPG', 'windows': 'WIN'}
+        res = {'loggedin': self.loggedin}
+        try:
+            res['status'] = st[operations.os_type.lower()]
+        except KeyError:
+            res['status'] = ''
+        # Check if OpenGnsys Client is busy
+        if res['status'] == 'OPG' and self.locked:
+            res['status'] = 'BSY'
         return res
 
     @check_secret
@@ -313,3 +332,17 @@ class OpenGnSysWorker(ServerWorker):
 
     def process_client_popup(self, params):
         self.REST.sendMessage('popup_done', params)
+
+    def process_getconfig(self, path, get_params, post_params, server):
+        """
+        Returns client configuration
+        :param path:
+        :param get_params:
+        :param post_params:
+        :param server:
+        :return: object
+        """
+        logger.debug('Recieved getconfig operation')
+        self.checkSecret(server)
+        # Returns raw data
+        return {'config': operations.get_disk_config()}
