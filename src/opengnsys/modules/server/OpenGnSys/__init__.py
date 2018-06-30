@@ -218,23 +218,14 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
-        res = {'status': '', 'loggedin': self.logged_in}
-        if platform.system() == 'Linux':        # GNU/Linux
-            # Check if it's OpenGnsys Client.
-            if os.path.exists('/scripts/oginit'):
-                # Check if OpenGnsys Client is busy.
-                if self.locked:
-                    res['status'] = 'BSY'
-                else:
-                    res['status'] = 'OPG'
-            else:
-                # Check if there is an active session.
-                res['status'] = 'LNX'
-        elif platform.system() == 'Windows':    # Windows
-            # Check if there is an active session.
-            res['status'] = 'WIN'
-        elif platform.system() == 'Darwin':     # Mac OS X  ??
-            res['status'] = 'OSX'
+        res = {'loggedin': self.loggedin}
+        try:
+            res['status'] = operations.os_type.lower()
+        except KeyError:
+            res['status'] = ''
+        # Check if OpenGnsys Client is busy
+        if res['status'] == 'oglive' and self.locked:
+            res['status'] = 'busy'
         return res
 
     @check_secret
@@ -344,7 +335,7 @@ class OpenGnSysWorker(ServerWorker):
                     # Skip blank rows
                     pass
             elif len(cols) == 7:
-                disk, npart, tpart, fs, os, size, usage = cols
+                disk, npart, tpart, fs, opsys, size, usage = cols
                 try:
                     if int(npart) == 0:
                         # Disk information
@@ -352,7 +343,7 @@ class OpenGnSysWorker(ServerWorker):
                     else:
                         # Partition information
                         storage.append({'disk': int(disk), 'partition': int(npart), 'parttype': tpart,
-                                        'filesystem': fs, 'operatingsystem': os, 'size': int(size),
+                                        'filesystem': fs, 'operatingsystem': opsys, 'size': int(size),
                                         'usage': int(usage)})
                 except ValueError:
                     logger.warn('Configuration parameter error: {}'.format(cols))
@@ -363,6 +354,38 @@ class OpenGnSysWorker(ServerWorker):
                 warnings += 1
         # Returning configuration data and count of warnings
         return {'serialno': serialno, 'storage': storage, 'warnings': warnings}
+
+    def task_command(self, code, route):
+        """
+        Task to execute a command
+        :param code: Code to execute
+        :param route: server REST route to return results (including its parameters)
+        """
+        (stat, out, err) = operations.exec_command(code)
+        self.REST.sendMessage(route, {'status': stat, 'output': out, 'error': err})
+
+    def process_command(self, path, get_params, post_params, server):
+        """
+        Launches a thread to executing a command
+        :param path: ignored
+        :param get_params: ignored
+        :param post_params: object with format {"id": OperationId, "code": "Code", url: "ReturnURL"}
+        :param server: ignored
+        :rtype: object with launching status
+        """
+        logger.debug('Recieved command operation with params: {}'.format(post_params))
+        self.checkSecret(server)
+        # Processing data
+        try:
+            code = post_params.get('code')
+            cmd_id = post_params.get('id')
+            route = '{}?id={}'.format(post_params.get('route'), cmd_id)
+            # Launching new thread
+            threading.Thread(target=self.task_command, args=(code, route)).start()
+        except Exception as e:
+            logger.error('Got exception {}'.format(e))
+            return {'error': e}
+        return {'op': 'launched'}
 
     def process_hardware(self, path, get_params, post_params, server):
         """
@@ -394,4 +417,4 @@ class OpenGnSysWorker(ServerWorker):
         :return:
         """
         logger.debug('Recieved software operation with params: {}'.format(post_params))
-        return operations.get_software(post_params['disk'], post_params['part'])
+        return operations.get_software(post_params.get('disk'), post_params.get('part'))
