@@ -46,12 +46,12 @@ from opengnsys.workers import ServerWorker
 from six.moves.urllib import parse
 
 
-
 # Check authorization header decorator
 def check_secret(fnc):
     """
     Decorator to check for received secret key and raise exception if it isn't valid.
     """
+
     def wrapper(*args, **kwargs):
         try:
             this, path, get_params, post_params, server = args  # @UnusedVariable
@@ -74,6 +74,7 @@ def catch_background_error(fnc):
             fnc(*args, **kwargs)
         except Exception as e:
             this.REST.sendMessage('error?id={}'.format(kwargs.get('requestId', 'error')), {'error': '{}'.format(e)})
+
     return wrapper
 
 
@@ -81,11 +82,12 @@ def check_locked_partition(sync=False):
     """
     Decorator to check if a partition is locked
     """
+
     def outer(fnc):
         def wrapper(*args, **kwargs):
             part_id = 'None'
             try:
-                this, path, get_params, post_params = args  # @UnusedVariable
+                this, path, get_params, post_params, server = args  # @UnusedVariable
                 part_id = post_params['disk'] + post_params['part']
                 if this.locked.get(part_id, False):
                     this.locked[part_id] = True
@@ -99,7 +101,9 @@ def check_locked_partition(sync=False):
                 if sync is True:
                     this.locked[part_id] = False
             logger.debug('Lock status: {} {}'.format(fnc, this.locked))
+
         return wrapper
+
     return outer
 
 
@@ -108,9 +112,9 @@ class OpenGnSysWorker(ServerWorker):
     interface = None  # Bound interface for OpenGnsys
     REST = None  # REST object
     logged_in = False  # User session flag
-    locked = {}       # Locked partitions
-    random = None     # Random string for secure connections
-    length = 32       # Random string length
+    locked = {}  # Locked partitions
+    random = None  # Random string for secure connections
+    length = 32  # Random string length
 
     def onActivation(self):
         """
@@ -245,15 +249,14 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
-        st = {'linux': 'LNX', 'macos': 'OSX', 'oglive': 'OPG', 'windows': 'WIN'}
         res = {'loggedin': self.loggedin}
         try:
-            res['status'] = st[operations.os_type.lower()]
+            res['status'] = operations.os_type.lower()
         except KeyError:
             res['status'] = ''
         # Check if OpenGnsys Client is busy
-        if res['status'] == 'OPG' and self.locked:
-            res['status'] = 'BSY'
+        if res['status'] == 'oglive' and self.locked:
+            res['status'] = 'busy'
         return res
 
     @check_secret
@@ -271,6 +274,7 @@ class OpenGnSysWorker(ServerWorker):
         # Rebooting thread
         def rebt():
             operations.reboot()
+
         threading.Thread(target=rebt).start()
         return {'op': 'launched'}
 
@@ -290,6 +294,7 @@ class OpenGnSysWorker(ServerWorker):
         def pwoff():
             time.sleep(2)
             operations.poweroff()
+
         threading.Thread(target=pwoff).start()
         return {'op': 'launched'}
 
@@ -347,9 +352,9 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: object
         """
-        serialno = ''   # Serial number
-        storage = []    # Storage configuration
-        warnings = 0    # Number of warnings
+        serialno = ''  # Serial number
+        storage = []  # Storage configuration
+        warnings = 0  # Number of warnings
         logger.debug('Recieved getconfig operation')
         self.checkSecret(server)
         # Processing data
@@ -363,7 +368,7 @@ class OpenGnSysWorker(ServerWorker):
                     # Skip blank rows
                     pass
             elif len(cols) == 7:
-                disk, npart, tpart, fs, os, size, usage = cols
+                disk, npart, tpart, fs, opsys, size, usage = cols
                 try:
                     if int(npart) == 0:
                         # Disk information
@@ -371,7 +376,7 @@ class OpenGnSysWorker(ServerWorker):
                     else:
                         # Partition information
                         storage.append({'disk': int(disk), 'partition': int(npart), 'parttype': tpart,
-                                        'filesystem': fs, 'operatingsystem': os, 'size': int(size),
+                                        'filesystem': fs, 'operatingsystem': opsys, 'size': int(size),
                                         'usage': int(usage)})
                 except ValueError:
                     logger.warn('Configuration parameter error: {}'.format(cols))
@@ -382,6 +387,38 @@ class OpenGnSysWorker(ServerWorker):
                 warnings += 1
         # Returning configuration data and count of warnings
         return {'serialno': serialno, 'storage': storage, 'warnings': warnings}
+
+    def task_command(self, code, route):
+        """
+        Task to execute a command
+        :param code: Code to execute
+        :param route: server REST route to return results (including its parameters)
+        """
+        (stat, out, err) = operations.exec_command(code)
+        self.REST.sendMessage(route, {'status': stat, 'output': out, 'error': err})
+
+    def process_command(self, path, get_params, post_params, server):
+        """
+        Launches a thread to executing a command
+        :param path: ignored
+        :param get_params: ignored
+        :param post_params: object with format {"id": OperationId, "code": "Code", url: "ReturnURL"}
+        :param server: ignored
+        :rtype: object with launching status
+        """
+        logger.debug('Recieved command operation with params: {}'.format(post_params))
+        self.checkSecret(server)
+        # Processing data
+        try:
+            code = post_params.get('code')
+            cmd_id = post_params.get('id')
+            route = '{}?id={}'.format(post_params.get('route'), cmd_id)
+            # Launching new thread
+            threading.Thread(target=self.task_command, args=(code, route)).start()
+        except Exception as e:
+            logger.error('Got exception {}'.format(e))
+            return {'error': e}
+        return {'op': 'launched'}
 
     def process_hardware(self, path, get_params, post_params, server):
         """
@@ -413,4 +450,4 @@ class OpenGnSysWorker(ServerWorker):
         :return:
         """
         logger.debug('Recieved software operation with params: {}'.format(post_params))
-        return operations.get_software(post_params['disk'], post_params['part'])
+        return operations.get_software(post_params.get('disk'), post_params.get('part'))
