@@ -83,6 +83,7 @@ def check_locked_partition(sync=False):
     """
     Decorator to check if a partition is locked
     """
+
     def outer(fnc):
         def wrapper(*args, **kwargs):
             part_id = 'None'
@@ -101,7 +102,9 @@ def check_locked_partition(sync=False):
                 if sync is True:
                     this.locked[part_id] = False
             logger.debug('Lock status: {} {}'.format(fnc, this.locked))
+
         return wrapper
+
     return outer
 
 
