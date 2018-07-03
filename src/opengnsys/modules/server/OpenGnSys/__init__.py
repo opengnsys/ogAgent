@@ -113,6 +113,7 @@ class OpenGnSysWorker(ServerWorker):
     REST = None  # REST object
     logged_in = False  # User session flag
     locked = {}  # Locked partitions
+    commands = []  # Running commands
     random = None  # Random string for secure connections
     length = 32  # Random string length
 
@@ -354,7 +355,7 @@ class OpenGnSysWorker(ServerWorker):
         serialno = ''  # Serial number
         storage = []  # Storage configuration
         warnings = 0  # Number of warnings
-        logger.debug('Recieved getconfig operation')
+        logger.debug('Received getconfig operation')
         self.checkSecret(server)
         # Processing data
         for row in operations.get_configuration().split(';'):
