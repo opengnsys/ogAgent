@@ -175,7 +175,6 @@ class OpenGnSysWorker(ServerWorker):
         t = 0
         # Generate random secret to send on activation
         self.random = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(self.length))
-        self.cmd = None
         # Ensure cfg has required configuration variables or an exception will be thrown
         url = self.service.config.get('opengnsys', 'remote')
         if operations.os_type == 'ogLive' and 'oglive' in os.environ:
