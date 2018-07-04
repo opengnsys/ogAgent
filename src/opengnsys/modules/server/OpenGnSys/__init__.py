@@ -123,7 +123,6 @@ class OpenGnSysWorker(ServerWorker):
         t = 0
         # Generate random secret to send on activation
         self.random = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(self.length))
-        self.cmd = None
         # Ensure cfg has required configuration variables or an exception will be thrown
         url = self.service.config.get('opengnsys', 'remote')
         if operations.os_type == 'ogLive' and 'oglive' in os.environ:
@@ -399,10 +398,11 @@ class OpenGnSysWorker(ServerWorker):
         (stat, out, err) = operations.exec_command(code)
         # Removing command from the list
         for c in self.commands:
-            if c.has_key('id') and c['id'] == op_id:
+            if c.getName() == op_id:
                 self.commands.remove(c)
         # Sending results
-        self.REST.sendMessage(route, {'id': op_id, 'status': stat, 'output': out, 'error': err})
+        self.REST.sendMessage(route, {'client': self.interface.ip, 'trace': op_id, 'status': stat, 'output': out,
+                                      'error': err})
 
     def process_command(self, path, get_params, post_params, server):
         """
@@ -411,8 +411,8 @@ class OpenGnSysWorker(ServerWorker):
         :param get_params: ignored
         :param post_params: object with format:
             id: operation id.
-            code: command code
-            route: callback URL
+            script: command code
+            redirect_url: callback REST route
         :param server: headers data
         :rtype: object with launching status
         """
@@ -420,17 +420,17 @@ class OpenGnSysWorker(ServerWorker):
         self.checkSecret(server)
         # Processing data
         try:
-            code = post_params.get('code')
+            script = post_params.get('script')
             op_id = post_params.get('id')
-            route = post_params.get('route')
+            route = post_params.get('redirect_url')
             # Checking if the thread id. exists
             for c in self.commands:
-                if c.has_key('id') and c['id'] == op_id:
+                if c.getName() == op_id:
                     raise Exception('Task id. already exists: {}'.format(op_id))
             # Launching a new thread
-            thr = threading.Thread(name=op_id, target=self.task_command, args=(code, route, op_id))
+            thr = threading.Thread(name=op_id, target=self.task_command, args=(script, route, op_id))
             thr.start()
-            self.commands.append({'id': op_id, 'code': code})
+            self.commands.append(thr)
         except Exception as e:
             logger.error('Got exception {}'.format(e))
             return {'error': e}
@@ -445,12 +445,14 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: object
         """
-        #data = []
-        #for c in self.commands:
-        #    if c.is_alive():
-        #        data.append({'name': c.getName(), 'code': c.__dict__['_Thread__args']})
-        #return data
-        return self.commands
+        data = []
+        logger.debug('Received execinfo operation')
+        self.checkSecret(server)
+        # Returning the arguments of all running threads
+        for c in self.commands:
+            if c.is_alive():
+                data.append(c.__dict__['_Thread__args'])
+        return data
 
     def process_hardware(self, path, get_params, post_params, server):
         """
@@ -461,7 +463,7 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         """
         data = []
-        logger.debug('Recieved hardware operation')
+        logger.debug('Received hardware operation')
         self.checkSecret(server)
         # Processing data
         try:
@@ -481,5 +483,5 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return:
         """
-        logger.debug('Recieved software operation with params: {}'.format(post_params))
+        logger.debug('Received software operation with params: {}'.format(post_params))
         return operations.get_software(post_params.get('disk'), post_params.get('part'))
