@@ -100,6 +100,8 @@ class OpenGnSysWorker(ServerWorker):
             # Replacing server IP if its running on ogLive clinet
             logger.debug('Activating on ogLive client, new server is {}'.format(os.environ['oglive']))
             url = parse.urlsplit(url)._replace(netloc=os.environ['oglive']).geturl()
+        if not url.endswith(os.path.sep):
+            url += os.path.sep
         self.REST = REST(url)
         # Get network interfaces until they are active or timeout (5 minutes)
         for t in range(0, 300):
@@ -152,6 +154,24 @@ class OpenGnSysWorker(ServerWorker):
         new_hosts_file = hosts_file + '.' + self.interface.ip.split('.')[0]
         if os.path.isfile(new_hosts_file):
             shutil.copyfile(new_hosts_file, hosts_file)
+        ### Separate in a different function to launch browser while catching disk configuration
+        # Create HTML file (TEMPORARY)
+        message = """
+<html>
+<head></head>
+<body>
+<h1>Initializing...</h1>
+</body>
+</html>
+"""
+        #f = open('/tmp/init.html', 'w')
+        #f.write(message)
+        #f.close()
+        # Launch browser
+        #subprocess.Popen(['browser', '-qws', '/tmp/init.html'])
+        #config = operations.get_configuration()
+        #self.REST.sendMessage('clients/config', {'mac': self.interface.mac, 'ip': self.interface.ip,
+        #                                         'config': config})
 
     def onDeactivation(self):
         """
