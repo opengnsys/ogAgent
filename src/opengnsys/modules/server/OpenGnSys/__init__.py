@@ -117,6 +117,57 @@ class OpenGnSysWorker(ServerWorker):
     random = None  # Random string for secure connections
     length = 32  # Random string length
 
+    def _launch_browser(self, url):
+        """
+        Launchs the Browser with specified URL
+        :param url: URL to show
+        """
+        logger.debug('Launching browser with URL: {}'.format(url))
+        # Trying to kill an old browser
+        try:
+            os.kill(self.browser['process'].pid, signal.SIGKILL)
+        except OSError:
+            logger.warn('Cannot kill the old browser process')
+        except KeyError:
+            # There is no previous browser
+            pass
+        self.browser['url'] = url
+        self.browser['process'] = subprocess.Popen(['browser', '-qws', url])
+
+    def _task_command(self, route, code, op_id, send_config=False):
+        """
+        Task to execute a command and return results to a server URI
+        :param route: server callback REST route to return results
+        :param code: code to execute
+        :param op_id: operation id.
+        """
+        menu_url = ''
+        # Show execution tacking log, if OGAgent runs on ogLive
+        os_type = operations.os_type.lower()
+        if os_type == 'oglive':
+            menu_url = self.browser['url']
+            self._launch_browser('http://localhost/cgi-bin/httpd-log.sh')
+        # Execute the code
+        (stat, out, err) = operations.exec_command(code)
+        # Remove command from the list
+        for c in self.commands:
+            if c.getName() == op_id:
+                self.commands.remove(c)
+        # Remove the REST API prefix, if needed
+        if route.startswith(self.REST.endpoint):
+            route = route[len(self.REST.endpoint):]
+        # Send back exit status and outputs (base64-encoded)
+        self.REST.sendMessage(route, {'mac': self.interface.mac, 'ip': self.interface.ip, 'trace': op_id,
+                                      'status': stat, 'output': out.encode('utf8').encode('base64'),
+                                      'error': err.encode('utf8').encode('base64')})
+        # Show latest menu, if OGAgent runs on ogLive
+        if os_type == 'oglive':
+            # Send configuration data, if needed
+            if send_config:
+                self.REST.sendMessage('clients/configs', {'mac': self.interface.mac, 'ip': self.interface.ip,
+                                                          'config': operations.get_configuration()})
+            self._launch_browser(menu_url)
+
     def onActivation(self):
         """
         Sends OGAgent activation notification to OpenGnsys server
@@ -269,7 +320,7 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
-        res = {'loggedin': self.loggedin}
+        res = {'loggedin': self.logged_in}
         try:
             res['status'] = operations.os_type.lower()
         except KeyError:
@@ -346,7 +397,7 @@ class OpenGnSysWorker(ServerWorker):
         Closes user session
         """
         logger.debug('Received logoff operation')
-        # Sending log off message to OGAgent client
+        # Send log off message to OGAgent client
         self.sendClientMessage('logoff', {})
         return {'op': 'sent to client'}
 
@@ -356,7 +407,7 @@ class OpenGnSysWorker(ServerWorker):
         Shows a message popup on the user's session
         """
         logger.debug('Received message operation')
-        # Sending popup message to OGAgent client
+        # Send popup message to OGAgent client
         self.sendClientMessage('popup', post_params)
         return {'op': 'launched'}
 
