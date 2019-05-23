@@ -223,7 +223,8 @@ def exec_command(cmd):
         logger.debug("ERROR EXEC COMMAND: {}".format(str(e)))
 
     stat = proc.returncode
-    return stat, out, err
+    return stat, out.decode(chardet.detect(out)['encoding']).encode('utf8'),\
+           err.decode(chardet.detect(err)['encoding']).encode('utf8')
 
 
 def get_hardware():
