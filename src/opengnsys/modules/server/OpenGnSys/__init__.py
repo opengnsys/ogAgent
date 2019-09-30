@@ -41,7 +41,6 @@ import urllib
 from opengnsys import REST
 from opengnsys import operations
 from opengnsys.log import logger
-from opengnsys.scriptThread import ScriptExecutorThread
 from opengnsys.workers import ServerWorker
 from six.moves.urllib import parse
 
@@ -139,6 +138,46 @@ class OpenGnSysWorker(ServerWorker):
                                                           'config': operations.get_configuration()})
             self._launch_browser(menu_url)
 
+    def _launch_browser(self, url):
+        """
+        Launchs the Browser with specified URL
+        :param url: URL to show
+        """
+        logger.debug('Launching browser with URL: {}'.format(url))
+        if hasattr(self.browser, 'process'):
+            self.browser['process'].kill()
+        self.browser['url'] = url
+        self.browser['process'] = subprocess.Popen(['browser', '-qws', url])
+
+    def _task_command(self, route, code, op_id):
+        """
+        Task to execute a command and return results to a server URI
+        :param route: server callback REST route to return results
+        :param code: code to execute
+        :param op_id: operation id.
+        """
+        menu_url = ''
+        # Show execution tacking log, if OGAgent runs on ogLive
+        os_type = operations.os_type.lower()
+        if os_type == 'oglive':
+            menu_url = self.browser['url']
+            self._launch_browser('http://localhost/cgi-bin/httpd-log.sh')
+        # Executing command
+        (stat, out, err) = operations.exec_command(code)
+        # Removing command from the list
+        for c in self.commands:
+            if c.getName() == op_id:
+                self.commands.remove(c)
+        # Removing the REST API prefix, if needed
+        if route.startswith(self.REST.endpoint):
+            route = route[len(self.REST.endpoint):]
+        # Sending results
+        self.REST.sendMessage(route, {'mac': self.interface.mac, 'ip': self.interface.ip, 'trace': op_id,
+                                      'status': stat, 'output': out, 'error': err})
+        # Show latest menu, if OGAgent runs on ogLive
+        if os_type == 'oglive':
+            self._launch_browser(menu_url)
+
     def onActivation(self):
         """
         Sends OGAgent activation notification to OpenGnsys server
@@ -194,21 +233,11 @@ class OpenGnSysWorker(ServerWorker):
             logger.debug('Successful connection after {} tries'.format(t))
         elif t == 100:
             raise Exception('Initialization error: Cannot connect to remote server')
-        # Delete marking files
-        for f in ['ogboot.me', 'ogboot.firstboot', 'ogboot.secondboot']:
-            try:
-                os.remove(os.sep + f)
-            except OSError:
-                pass
-        # Copy file "HostsFile.FirstOctetOfIPAddress" to "HostsFile", if it exists
-        # (used in "exam mode" from the University of Seville)
-        hosts_file = os.path.join(operations.get_etc_path(), 'hosts')
-        new_hosts_file = hosts_file + '.' + self.interface.ip.split('.')[0]
-        if os.path.isfile(new_hosts_file):
-            shutil.copyfile(new_hosts_file, hosts_file)
-        ### Separate in a different function to launch browser while catching disk configuration
-        # Create HTML file (TEMPORARY)
-        message = """
+        # Completing OGAgent initialization process
+        os_type = operations.os_type.lower()
+        if os_type == 'oglive':
+            ### Following code may be separated in a different function to launch browser while catching disk configuration
+            message = """
 <html>
 <head></head>
 <style>
@@ -237,14 +266,27 @@ class OpenGnSysWorker(ServerWorker):
 </body>
 </html>
 """
-        #f = open('/tmp/init.html', 'w')
-        #f.write(message)
-        #f.close()
-        # Launch browser
-        #subprocess.Popen(['browser', '-qws', '/tmp/init.html'])
-        #config = operations.get_configuration()
-        #self.REST.sendMessage('clients/config', {'mac': self.interface.mac, 'ip': self.interface.ip,
-        #                                         'config': config})
+            f = open('/tmp/init.html', 'w')
+            f.write(message)
+            f.close()
+            # Launch the Browser
+            self._launch_browser('/tmp/init.html')
+            config = operations.get_configuration()
+            self.REST.sendMessage('ogagent/config', {'mac': self.interface.mac, 'ip': self.interface.ip,
+                                                     'config': config})
+        else:
+            # Delete marking files
+            for f in ['ogboot.me', 'ogboot.firstboot', 'ogboot.secondboot']:
+                try:
+                    os.remove(os.sep + f)
+                except OSError:
+                    pass
+            # Copy file "HostsFile.FirstOctetOfIPAddress" to "HostsFile", if it exists
+            # (used in "exam mode" from the University of Seville)
+            hosts_file = os.path.join(operations.get_etc_path(), 'hosts')
+            new_hosts_file = hosts_file + '.' + self.interface.ip.split('.')[0]
+            if os.path.isfile(new_hosts_file):
+                shutil.copyfile(new_hosts_file, hosts_file)
 
     def onDeactivation(self):
         """
@@ -318,7 +360,7 @@ class OpenGnSysWorker(ServerWorker):
         except KeyError:
             res['status'] = ''
         # Check if OpenGnsys Client is busy
-        if res['status'] == 'oglive' and self.locked:
+        if res['status'] == 'oglive' and len(self.commands) > 0:
             res['status'] = 'busy'
         return res
 
@@ -370,15 +412,27 @@ class OpenGnSysWorker(ServerWorker):
         :return: JSON object {"op": "launched"}
         """
         logger.debug('Processing script request')
-        # Decoding script
-        script = urllib.unquote(post_params.get('script').decode('base64')).decode('utf8')
-        script = 'import subprocess; subprocess.check_output("""{}""",shell=True)'.format(script)
-        # Executing script.
-        if post_params.get('client', 'false') == 'false':
-            thr = ScriptExecutorThread(script)
-            thr.start()
-        else:
-            self.sendClientMessage('script', {'code': script})
+
+        # Processing data
+        try:
+            script = urllib.unquote(post_params.get('script').decode('base64')).decode('utf8')
+            op_id = post_params.get('id')
+            route = post_params.get('redirect_uri')
+            # Checking if the thread id. exists
+            for c in self.commands:
+                if c.getName() == str(op_id):
+                    raise Exception('Task id. already exists: {}'.format(op_id))
+            if post_params.get('client', 'false') == 'false':
+                # Launching a new thread
+                thr = threading.Thread(name=op_id, target=self._task_command, args=(route, script, op_id))
+                thr.start()
+                self.commands.append(thr)
+            else:
+                # Executing as normal user
+                self.sendClientMessage('script', {'code': script})
+        except Exception as e:
+            logger.error('Got exception {}'.format(e))
+            return {'error': e}
         return {'op': 'launched'}
 
     @check_secret
@@ -404,6 +458,7 @@ class OpenGnSysWorker(ServerWorker):
     def process_client_popup(self, params):
         self.REST.sendMessage('popup_done', params)
 
+    @check_secret
     def process_config(self, path, get_params, post_params, server):
         """
         Returns client configuration
@@ -413,31 +468,30 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: object
         """
-        serialno = ''   # Serial number
+        serial_no = ''  # Serial number
         storage = []    # Storage configuration
         warnings = 0    # Number of warnings
         logger.debug('Received getconfig operation')
-        self.checkSecret(server)
         # Processing data
         for row in operations.get_configuration().split(';'):
             cols = row.split(':')
             if len(cols) == 1:
                 if cols[0] != '':
                     # Serial number
-                    serialno = cols[0]
+                    serial_no = cols[0]
                 else:
                     # Skip blank rows
                     pass
             elif len(cols) == 7:
-                disk, npart, tpart, fs, opsys, size, usage = cols
+                disk, part_no, part_type, fs, op_sys, size, usage = cols
                 try:
                     if int(npart) == 0:
                         # Disk information
-                        storage.append({'disk': int(disk), 'parttable': int(tpart), 'size': int(size)})
+                        storage.append({'disk': int(disk), 'parttable': int(part_type), 'size': int(size)})
                     else:
                         # Partition information
-                        storage.append({'disk': int(disk), 'partition': int(npart), 'parttype': tpart,
-                                        'filesystem': fs, 'operatingsystem': opsys, 'size': int(size),
+                        storage.append({'disk': int(disk), 'partition': int(part_no), 'parttype': part_type,
+                                        'filesystem': fs, 'operatingsystem': op_sys, 'size': int(size),
                                         'usage': int(usage)})
                 except ValueError:
                     logger.warn('Configuration parameter error: {}'.format(cols))
@@ -447,25 +501,9 @@ class OpenGnSysWorker(ServerWorker):
                 logger.warn('Configuration data error: {}'.format(cols))
                 warnings += 1
         # Returning configuration data and count of warnings
-        return {'serialno': serialno, 'storage': storage, 'warnings': warnings}
+        return {'serial': serial_no, 'storage': storage, 'warnings': warnings}
 
-    def task_command(self, code, route, op_id):
-        """
-        Task to execute a command
-        :param code: Code to execute
-        :param route: server callback REST route to return results
-        :param op_id: operation id.
-        """
-        # Executing command
-        (stat, out, err) = operations.exec_command(code)
-        # Removing command from the list
-        for c in self.commands:
-            if c.getName() == op_id:
-                self.commands.remove(c)
-        # Sending results
-        self.REST.sendMessage(route, {'client': self.interface.ip, 'trace': op_id, 'status': stat, 'output': out,
-                                      'error': err})
-
+    @check_secret
     def process_command(self, path, get_params, post_params, server):
         """
         Launches a thread to executing a command
@@ -479,7 +517,6 @@ class OpenGnSysWorker(ServerWorker):
         :rtype: object with launching status
         """
         logger.debug('Received command operation with params: {}'.format(post_params))
-        self.checkSecret(server)
         # Processing data
         try:
             script = post_params.get('script')
@@ -498,6 +535,7 @@ class OpenGnSysWorker(ServerWorker):
             return {'error': e}
         return {'op': 'launched'}
 
+    @check_secret
     def process_execinfo(self, path, get_params, post_params, server):
         """
         Returns running commands information
@@ -509,16 +547,15 @@ class OpenGnSysWorker(ServerWorker):
         """
         data = []
         logger.debug('Received execinfo operation')
-        self.checkSecret(server)
         # Returning the arguments of all running threads
         for c in self.commands:
             if c.is_alive():
                 data.append(c.__dict__['_Thread__args'])
         return data
 
+    @check_secret
     def process_stopcmd(self, path, get_params, post_params, server):
         logger.debug('Received stopcmd operation with params {}:'.format(post_params))
-        self.checkSecret(server)
         op_id = post_params.get('trace')
         for c in self.commands:
             if c.is_alive() and c.getName() == str(op_id):
@@ -526,6 +563,7 @@ class OpenGnSysWorker(ServerWorker):
                 return {"stopped": op_id}
         return {}
 
+    @check_secret
     def process_hardware(self, path, get_params, post_params, server):
         """
         Returns client's hardware profile
@@ -546,6 +584,7 @@ class OpenGnSysWorker(ServerWorker):
         # Return list of hardware components
         return data
 
+    @check_secret
     def process_software(self, path, get_params, post_params, server):
         """
         Returns software profile installed on an operating system
