@@ -168,6 +168,46 @@ class OpenGnSysWorker(ServerWorker):
                                                          'config': operations.get_configuration()})
             self._launch_browser(menu_url)
 
+    def _launch_browser(self, url):
+        """
+        Launchs the Browser with specified URL
+        :param url: URL to show
+        """
+        logger.debug('Launching browser with URL: {}'.format(url))
+        if hasattr(self.browser, 'process'):
+            self.browser['process'].kill()
+        self.browser['url'] = url
+        self.browser['process'] = subprocess.Popen(['browser', '-qws', url])
+
+    def _task_command(self, route, code, op_id):
+        """
+        Task to execute a command and return results to a server URI
+        :param route: server callback REST route to return results
+        :param code: code to execute
+        :param op_id: operation id.
+        """
+        menu_url = ''
+        # Show execution tacking log, if OGAgent runs on ogLive
+        os_type = operations.os_type.lower()
+        if os_type == 'oglive':
+            menu_url = self.browser['url']
+            self._launch_browser('http://localhost/cgi-bin/httpd-log.sh')
+        # Executing command
+        (stat, out, err) = operations.exec_command(code)
+        # Removing command from the list
+        for c in self.commands:
+            if c.getName() == op_id:
+                self.commands.remove(c)
+        # Removing the REST API prefix, if needed
+        if route.startswith(self.REST.endpoint):
+            route = route[len(self.REST.endpoint):]
+        # Sending results
+        self.REST.sendMessage(route, {'mac': self.interface.mac, 'ip': self.interface.ip, 'trace': op_id,
+                                      'status': stat, 'output': out, 'error': err})
+        # Show latest menu, if OGAgent runs on ogLive
+        if os_type == 'oglive':
+            self._launch_browser(menu_url)
+
     def onActivation(self):
         """
         Sends OGAgent activation notification to OpenGnsys server
