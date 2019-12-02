@@ -88,12 +88,10 @@ class OpenGnSysWorker(ServerWorker):
     commands = []  # Running commands
     random = None  # Random string for secure connections
     length = 32  # Random string length
-    access_token = refresh_token = None  # Server authorization tokens
-    grant_type = 'http://opengnsys.es/grants/og_client'
 
     def _launch_browser(self, url):
         """
-        Launchs the Browser with specified URL
+        Launches the Browser with specified URL
         :param url: URL to show
         """
         logger.debug('Launching browser with URL: {}'.format(url))
@@ -199,7 +197,7 @@ class OpenGnSysWorker(ServerWorker):
         # Completing OGAgent initialization process
         os_type = operations.os_type.lower()
         if os_type == 'oglive':
-            # # Following code may be separated in a different function to launch browser while get disk configuration
+            # # Following code may be separated into a different function to launch browser while getting the disk configuration
             message = """
 <html>
 <head></head>
