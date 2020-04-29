@@ -41,7 +41,7 @@ try:
     with open('../VERSION', 'r') as v:
         VERSION = v.read().strip()
 except IOError:
-    VERSION = '1.1.1b'
+    VERSION = '1.2.0'
 
 __title__ = 'OpenGnsys Agent'
 __version__ = VERSION
