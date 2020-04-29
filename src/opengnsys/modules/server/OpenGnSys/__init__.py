@@ -77,11 +77,10 @@ def catch_background_error(fnc):
 
 
 class OpenGnSysWorker(ServerWorker):
-    name = 'opengnsys'
+    name = 'opengnsys'  # Module name
     interface = None  # Bound interface for OpenGnsys
     REST = None  # REST object
     logged_in = False  # User session flag
-    locked = {}
     random = None  # Random string for secure connections
     length = 32  # Random string length
 
@@ -213,23 +212,12 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
-        res = {'status': '', 'loggedin': self.logged_in}
-        if platform.system() == 'Linux':        # GNU/Linux
-            # Check if it's OpenGnsys Client.
-            if os.path.exists('/scripts/oginit'):
-                # Check if OpenGnsys Client is busy.
-                if self.locked:
-                    res['status'] = 'BSY'
-                else:
-                    res['status'] = 'OPG'
-            else:
-                # Check if there is an active session.
-                res['status'] = 'LNX'
-        elif platform.system() == 'Windows':    # Windows
-            # Check if there is an active session.
-            res['status'] = 'WIN'
-        elif platform.system() == 'Darwin':     # Mac OS X  ??
-            res['status'] = 'OSX'
+        st = {'linux': 'LNX', 'macos': 'OSX', 'windows': 'WIN'}
+        res = {'loggedin': self.loggedin}
+        try:
+            res['status'] = st[operations.os_type.lower()]
+        except KeyError:
+            res['status'] = 'ERR'
         return res
 
     @check_secret
