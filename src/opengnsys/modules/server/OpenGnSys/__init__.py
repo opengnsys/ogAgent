@@ -30,18 +30,17 @@
 """
 from __future__ import unicode_literals
 
-import threading
 import os
 import platform
 import time
 import random
 import shutil
 import string
+import threading
 import urllib
 
 from opengnsys.workers import ServerWorker
-from opengnsys import REST, RESTError
-from opengnsys import operations
+from opengnsys import REST, RESTError, operations, VERSION
 from opengnsys.log import logger
 from opengnsys.scriptThread import ScriptExecutorThread
 
@@ -116,7 +115,8 @@ class OpenGnSysWorker(ServerWorker):
                 try:
                     self.REST.sendMessage('ogagent/started', {'mac': self.interface.mac, 'ip': self.interface.ip,
                                                               'secret': self.random, 'ostype': operations.os_type,
-                                                              'osversion': operations.os_version})
+                                                              'osversion': operations.os_version,
+                                                              'agent_version': VERSION})
                     break
                 except:
                     # Trying to initialize on alternative server, if defined
@@ -124,7 +124,8 @@ class OpenGnSysWorker(ServerWorker):
                     self.REST = REST(self.service.config.get('opengnsys', 'altremote'))
                     self.REST.sendMessage('ogagent/started', {'mac': self.interface.mac, 'ip': self.interface.ip,
                                                               'secret': self.random, 'ostype': operations.os_type,
-                                                              'osversion': operations.os_version, 'alt_url': True})
+                                                              'osversion': operations.os_version, 'alt_url': True,
+                                                              'agent_version': VERSION})
                     break
             except:
                 time.sleep(3)
