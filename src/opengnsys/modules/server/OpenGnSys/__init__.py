@@ -80,7 +80,7 @@ class OpenGnSysWorker(ServerWorker):
     name = 'opengnsys'  # Module name
     interface = None  # Bound interface for OpenGnsys
     REST = None  # REST object
-    logged_in = False  # User session flag
+    user = []  # User sessions
     random = None  # Random string for secure connections
     length = 32  # Random string length
 
@@ -163,7 +163,7 @@ class OpenGnSysWorker(ServerWorker):
         """
         user, sep, language = data.partition(',')
         logger.debug('Received login for {} with language {}'.format(user, language))
-        self.logged_in = True
+        self.user.append(user)
         self.REST.sendMessage('ogagent/loggedin', {'ip': self.interface.ip, 'user': user, 'language': language,
                                                    'ostype': operations.os_type, 'osversion': operations.os_version})
 
@@ -172,7 +172,10 @@ class OpenGnSysWorker(ServerWorker):
         Sends session logout notification to OpenGnsys server
         """
         logger.debug('Received logout for {}'.format(user))
-        self.logged_in = False
+        try:
+            self.user.pop()
+        except IndexError:
+            pass
         self.REST.sendMessage('ogagent/loggedout', {'ip': self.interface.ip, 'user': user})
 
     def process_ogclient(self, path, get_params, post_params, server):
@@ -213,11 +216,12 @@ class OpenGnSysWorker(ServerWorker):
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
         st = {'linux': 'LNX', 'macos': 'OSX', 'windows': 'WIN'}
-        res = {'loggedin': self.loggedin}
         try:
             res['status'] = st[operations.os_type.lower()]
+            res = {'status': st[operations.os_type.lower()], 'loggedin': len(self.user) > 0}
         except KeyError:
-            res['status'] = 'ERR'
+            # Unknown operating system
+            res = {'status': 'UNK'}
         return res
 
     @check_secret
