@@ -53,8 +53,11 @@ def check_secret(fnc):
     def wrapper(*args, **kwargs):
         try:
             this, path, get_params, post_params, server = args  # @UnusedVariable
-            if this.random == server.headers['Authorization']:
-                fnc(*args, **kwargs)
+            # Accept "status" operation with no arguments or any function with Authorization header
+            if fnc.__name__ == 'process_status' and not get_params:
+                return fnc(*args, **kwargs)
+            elif this.random == server.headers['Authorization']:
+                return fnc(*args, **kwargs)
             else:
                 raise Exception('Unauthorized operation')
         except Exception as e:
@@ -207,19 +210,25 @@ class OpenGnSysWorker(ServerWorker):
             raise Exception('Message processor for "{}" not found'.format(path[0]))
         return operation(path[1:], get_params, post_params)
 
+    @check_secret
     def process_status(self, path, get_params, post_params, server):
         """
         Returns client status (OS type or execution status) and login status
         :param path:
-        :param get_params:
+        :param get_params: optional parameter "detail" to show extended status
         :param post_params:
         :param server:
-        :return: JSON object {"status": "status_code", "loggedin": boolean}
+        :return: JSON object {"status": "status_code", "loggedin": boolean, ...}
         """
         st = {'linux': 'LNX', 'macos': 'OSX', 'windows': 'WIN'}
         try:
-            res['status'] = st[operations.os_type.lower()]
+            # Standard status
             res = {'status': st[operations.os_type.lower()], 'loggedin': len(self.user) > 0}
+            # Detailed status
+            if get_params.get('detail', 'false') == 'true':
+                res.update({'agent_version': VERSION, 'os_version': operations.os_version, 'sys_load': os.getloadavg()})
+                if res['loggedin']:
+                    res.update({'sessions': len(self.user), 'current_user': self.user[-1]})
         except KeyError:
             # Unknown operating system
             res = {'status': 'UNK'}
