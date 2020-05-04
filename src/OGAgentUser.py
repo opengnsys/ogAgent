@@ -31,12 +31,12 @@
 """
 from __future__ import unicode_literals
 
+import json
 import sys
 import time
-import json
+from PyQt5 import QtCore, QtGui, QtWidgets
 import six
 import atexit
-from PyQt4 import QtCore, QtGui  # @UnresolvedImport
 
 from opengnsys import VERSION, ipc, operations, utils
 from opengnsys.log import logger
@@ -63,7 +63,7 @@ def sigAtExit():
 # About dialog
 class OGAAboutDialog(QtGui.QDialog):
     def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.ui = Ui_OGAAboutDialog()
         self.ui.setupUi(self)
         self.ui.VersionLabel.setText("Version " + VERSION)
@@ -72,9 +72,9 @@ class OGAAboutDialog(QtGui.QDialog):
         self.hide()
 
 
-class OGAMessageDialog(QtGui.QDialog):
+class OGAMessageDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.ui = Ui_OGAMessageDialog()
         self.ui.setupUi(self)
 
@@ -89,7 +89,7 @@ class OGAMessageDialog(QtGui.QDialog):
 class MessagesProcessor(QtCore.QThread):
     logoff = QtCore.pyqtSignal(name='logoff')
     message = QtCore.pyqtSignal(tuple, name='message')
-    script = QtCore.pyqtSignal(QtCore.QString, name='script')
+    script = QtCore.pyqtSignal(str, name='script')
     exit = QtCore.pyqtSignal(name='exit')
 
     def __init__(self, port):
@@ -157,7 +157,7 @@ class MessagesProcessor(QtCore.QThread):
         self.exit.emit()
 
 
-class OGASystemTray(QtGui.QSystemTrayIcon):
+class OGASystemTray(QtWidgets.QSystemTrayIcon):
     def __init__(self, app_, parent=None):
         self.app = app_
         self.config = readConfig(client=True)
@@ -174,10 +174,10 @@ class OGASystemTray(QtGui.QSystemTrayIcon):
         # icon = QtGui.QIcon(style.standardPixmap(QtGui.QStyle.SP_ComputerIcon))
         icon = QtGui.QIcon(':/images/img/oga.png')
 
-        QtGui.QSystemTrayIcon.__init__(self, icon, parent)
-        self.menu = QtGui.QMenu(parent)
-        exitAction = self.menu.addAction("About")
-        exitAction.triggered.connect(self.about)
+        QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
+        self.menu = QtWidgets.QMenu(parent)
+        exit_action = self.menu.addAction("About")
+        exit_action.triggered.connect(self.about)
         self.setContextMenu(self.menu)
         self.ipc = MessagesProcessor(self.ipcport)
 
@@ -310,14 +310,14 @@ class OGASystemTray(QtGui.QSystemTrayIcon):
 
 
 if __name__ == '__main__':
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
-    if not QtGui.QSystemTrayIcon.isSystemTrayAvailable():
+    if not QtWidgets.QSystemTrayIcon.isSystemTrayAvailable():
         # QtGui.QMessageBox.critical(None, "Systray", "I couldn't detect any system tray on this system.")
         sys.exit(1)
 
     # This is important so our app won't close on messages windows (alerts, etc...)
-    QtGui.QApplication.setQuitOnLastWindowClosed(False)
+    QtWidgets.QApplication.setQuitOnLastWindowClosed(False)
 
     try:
         trayIcon = OGASystemTray(app)
