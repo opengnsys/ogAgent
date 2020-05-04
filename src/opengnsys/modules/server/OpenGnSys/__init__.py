@@ -31,12 +31,11 @@
 from __future__ import unicode_literals
 
 import os
-import platform
-import time
 import random
 import shutil
 import string
 import threading
+import time
 import urllib
 
 from opengnsys.workers import ServerWorker
@@ -67,6 +66,26 @@ def check_secret(fnc):
     return wrapper
 
 
+# Check if operation is permitted
+def execution_level(level):
+    def check_permitted(fnc):
+        def wrapper(*args, **kwargs):
+            levels = ['status', 'halt', 'full']
+            this = args[0]
+            try:
+                if levels.index(level) <= levels.index(this.exec_level):
+                    return fnc(*args, **kwargs)
+                else:
+                    raise Exception('Unauthorized operation')
+            except Exception as e:
+                logger.error(e)
+                raise Exception(e)
+
+        return wrapper
+
+    return check_permitted
+
+
 # Error handler decorator.
 def catch_background_error(fnc):
     def wrapper(*args, **kwargs):
@@ -85,6 +104,7 @@ class OpenGnSysWorker(ServerWorker):
     user = []  # User sessions
     random = None  # Random string for secure connections
     length = 32  # Random string length
+    exec_level = None  # Execution level (permitted operations)
 
     def onActivation(self):
         """
@@ -96,6 +116,11 @@ class OpenGnSysWorker(ServerWorker):
         # Ensure cfg has required configuration variables or an exception will be thrown
         url = self.service.config.get('opengnsys', 'remote')
         self.REST = REST(url)
+        # Execution level ('full' by default)
+        try:
+            self.exec_level = self.service.config.get('opengnsys', 'level')
+        except:
+            self.exec_level = 'full'
         # Get network interfaces until they are active or timeout (5 minutes)
         for t in range(0, 300):
             try:
@@ -211,6 +236,7 @@ class OpenGnSysWorker(ServerWorker):
         return operation(path[1:], get_params, post_params)
 
     @check_secret
+    @execution_level('status')
     def process_status(self, path, get_params, post_params, server):
         """
         Returns client status (OS type or execution status) and login status
@@ -235,6 +261,7 @@ class OpenGnSysWorker(ServerWorker):
         return res
 
     @check_secret
+    @execution_level('halt')
     def process_reboot(self, path, get_params, post_params, server):
         """
         Launches a system reboot operation
@@ -253,6 +280,7 @@ class OpenGnSysWorker(ServerWorker):
         return {'op': 'launched'}
 
     @check_secret
+    @execution_level('halt')
     def process_poweroff(self, path, get_params, post_params, server):
         """
         Launches a system power off operation
@@ -272,6 +300,7 @@ class OpenGnSysWorker(ServerWorker):
         return {'op': 'launched'}
 
     @check_secret
+    @execution_level('full')
     def process_script(self, path, get_params, post_params, server):
         """
         Processes an script execution (script should be encoded in base64)
@@ -298,6 +327,7 @@ class OpenGnSysWorker(ServerWorker):
         return {'op': 'launched'}
 
     @check_secret
+    @execution_level('full')
     def process_logoff(self, path, get_params, post_params, server):
         """
         Closes user session
@@ -308,6 +338,7 @@ class OpenGnSysWorker(ServerWorker):
         return {'op': 'sent to client'}
 
     @check_secret
+    @execution_level('full')
     def process_popup(self, path, get_params, post_params, server):
         """
         Shows a message popup on the user's session
