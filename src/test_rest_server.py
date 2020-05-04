@@ -30,7 +30,7 @@
 @author: Adolfo Gómez, dkmaster at dkmon dot com
 '''
 # pylint: disable=unused-wildcard-import,wildcard-import
-from __future__ import unicode_literals, print_function
+
 
 # Pydev can't parse "six.moves.xxxx" because it is loaded lazy
 from six.moves.socketserver import ThreadingMixIn  # @UnresolvedImport

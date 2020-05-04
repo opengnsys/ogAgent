@@ -26,10 +26,10 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-'''
+"""
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-'''
-from __future__ import unicode_literals
+"""
+
 
 from opengnsys.service import CommonService
 from opengnsys.service import IPC_PORT
@@ -45,7 +45,7 @@ import json
 
 try:
     from prctl import set_proctitle  # @UnresolvedImport
-except Exception:  # Platform may not include prctl, so in case it's not available, we let the "name" as is
+except ImportError:  # Platform may not include prctl, so in case it's not available, we let the "name" as is
     def set_proctitle(_):
         pass
 
@@ -63,7 +63,6 @@ class OGAgentSvc(Daemon, CommonService):
 
         # Call modules initialization
         # They are called in sequence, no threading is done at this point, so ensure modules onActivate always returns
-        
 
         # *********************
         # * Main Service loop *
@@ -93,6 +92,7 @@ def usage():
     sys.stderr.write("usage: {} start|stop|restart|fg|login 'username'|logout 'username'|message 'module' 'message' 'json'\n".format(sys.argv[0]))
     sys.exit(2)
 
+
 if __name__ == '__main__':
     logger.setLevel('INFO')
     
@@ -105,7 +105,6 @@ if __name__ == '__main__':
             sys.exit(0)
         except Exception as e:
             logger.error(e)
-        
 
     if len(sys.argv) == 3 and sys.argv[1] in ('login', 'logout'):
         logger.debug('Running client opengnsys')

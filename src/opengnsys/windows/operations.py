@@ -29,7 +29,7 @@
 '''
 @author: Adolfo Gómez, dkmaster at dkmon dot com
 '''
-from __future__ import unicode_literals
+
 
 import os
 import locale
@@ -102,12 +102,12 @@ def getWindowsVersion():
     '''
     Returns Windows version.
     '''
-    import _winreg
-    reg = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion')
+    import winreg
+    reg = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion')
     try:
-        data = '{} {}'.format(_winreg.QueryValueEx(reg, 'ProductName')[0], _winreg.QueryValueEx(reg, 'ReleaseId')[0])
+        data = '{} {}'.format(winreg.QueryValueEx(reg, 'ProductName')[0], winreg.QueryValueEx(reg, 'ReleaseId')[0])
     except Exception:
-        data = '{} {}'.format(_winreg.QueryValueEx(reg, 'ProductName')[0], _winreg.QueryValueEx(reg, 'CurrentBuildNumber')[0])
+        data = '{} {}'.format(winreg.QueryValueEx(reg, 'ProductName')[0], winreg.QueryValueEx(reg, 'CurrentBuildNumber')[0])
     reg.Close()
     return data
 
@@ -200,7 +200,7 @@ def joinDomain(domain, ou, account, password, executeInOneStep=False):
         error = getErrorMessage(res)
         if res == 1355:
             error = "DC Is not reachable"
-        print('{} {}'.format(res, error))
+        print(('{} {}'.format(res, error)))
         raise Exception('Error joining domain {}, with credentials {}/*****{}: {}, {}'.format(domain.value, account.value, ', under OU {}'.format(ou.value) if ou.value is not None else '', res, error))
 
 

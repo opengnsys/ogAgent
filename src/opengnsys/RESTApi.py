@@ -32,7 +32,7 @@
 
 # pylint: disable-msg=E1101,W0703
 
-from __future__ import unicode_literals
+
 
 import requests
 import logging

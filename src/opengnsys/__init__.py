@@ -29,13 +29,13 @@
 """
 @author: Adolfo Gómez, dkmaster at dkmon dot com
 """
-from __future__ import unicode_literals
+
 
 # On centos, old six release does not includes byte2int, nor six.PY2
 import six
 
-import modules
-from RESTApi import REST, RESTError
+from . import modules
+from .RESTApi import REST, RESTError
 
 try:
     with open('../VERSION', 'r') as v:

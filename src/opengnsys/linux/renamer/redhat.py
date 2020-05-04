@@ -28,7 +28,7 @@
 '''
 @author: Adolfo Gómez, dkmaster at dkmon dot com
 '''
-from __future__ import unicode_literals
+
 
 from opengnsys.linux.renamer import renamers
 from opengnsys.log import logger

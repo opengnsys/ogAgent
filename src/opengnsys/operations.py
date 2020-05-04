@@ -31,7 +31,7 @@
 """
 # pylint: disable=unused-wildcard-import,wildcard-import
 
-from __future__ import unicode_literals
+
 import sys
 
 # Importing platform operations and getting operating system data.

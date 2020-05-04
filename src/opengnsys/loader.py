@@ -33,7 +33,7 @@
 
 # This is a simple module loader, so we can add "external opengnsys" modules as addons
 # Modules under "opengsnsys/modules" are always autoloaded
-from __future__ import unicode_literals
+
 
 import pkgutil
 import os.path

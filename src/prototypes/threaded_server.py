@@ -3,7 +3,7 @@ Created on Jul 9, 2015
 
 @author: dkmaster
 '''
-from __future__ import unicode_literals, print_function
+
 
 # Pydev can't parse "six.moves.xxxx" because it is loaded lazy
 from six.moves.socketserver import ThreadingMixIn  # @UnresolvedImport

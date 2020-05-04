@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2014 Virtual Cable S.L.
@@ -29,28 +29,21 @@
 """
 @author: Adolfo Gómez, dkmaster at dkmon dot com
 """
-from __future__ import unicode_literals
-
+import atexit
+import base64
 import json
 import sys
 import time
 from PyQt5 import QtCore, QtGui, QtWidgets
-import six
-import atexit
 
-from opengnsys import VERSION, ipc, operations, utils
-from opengnsys.log import logger
-from opengnsys.service import IPC_PORT
 from about_dialog_ui import Ui_OGAAboutDialog
 from message_dialog_ui import Ui_OGAMessageDialog
-from opengnsys.scriptThread import ScriptExecutorThread
+from opengnsys import VERSION, ipc, operations, utils
 from opengnsys.config import readConfig
 from opengnsys.loader import loadModules
-
-# Set default characters encoding to UTF-8
-reload(sys)
-if hasattr(sys, 'setdefaultencoding'):
-    sys.setdefaultencoding('utf-8')
+from opengnsys.log import logger
+from opengnsys.scriptThread import ScriptExecutorThread
+from opengnsys.service import IPC_PORT
 
 trayIcon = None
 
@@ -61,7 +54,7 @@ def sigAtExit():
 
 
 # About dialog
-class OGAAboutDialog(QtGui.QDialog):
+class OGAAboutDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
         self.ui = Ui_OGAAboutDialog()
@@ -115,13 +108,13 @@ class MessagesProcessor(QtCore.QThread):
     def isAlive(self):
         return self.ipc is not None
 
-    def sendLogin(self, userName, language):
+    def sendLogin(self, username, language):
         if self.ipc:
-            self.ipc.sendLogin(userName, language)
+            self.ipc.sendLogin(username, language)
 
-    def sendLogout(self, userName):
+    def sendLogout(self, username):
         if self.ipc:
-            self.ipc.sendLogout(userName)
+            self.ipc.sendLogout(username)
 
     def run(self):
         if self.ipc is None:
@@ -136,15 +129,15 @@ class MessagesProcessor(QtCore.QThread):
                 msg = self.ipc.getMessage()
                 if msg is None:
                     break
-                msgId, data = msg
+                msg_id, data = msg
                 logger.debug('Got Message on User Space: {}:{}'.format(msgId, data))
-                if msgId == ipc.MSG_MESSAGE:
+                if msg_id == ipc.MSG_MESSAGE:
                     module, message, data = data.split('\0')
                     self.message.emit((module, message, data))
-                elif msgId == ipc.MSG_LOGOFF:
+                elif msg_id == ipc.MSG_LOGOFF:
                     self.logoff.emit()
-                elif msgId == ipc.MSG_SCRIPT:
-                    self.script.emit(QtCore.QString.fromUtf8(data))
+                elif msg_id == ipc.MSG_SCRIPT:
+                    self.script.emit(data.decode('utf-8'))
             except Exception as e:
                 try:
                     logger.error('Got error on IPC thread {}'.format(utils.exceptionToMessage(e)))
@@ -161,17 +154,14 @@ class OGASystemTray(QtWidgets.QSystemTrayIcon):
     def __init__(self, app_, parent=None):
         self.app = app_
         self.config = readConfig(client=True)
-
+        self.modules = None
         # Get opengnsys section as dict
         cfg = dict(self.config.items('opengnsys'))
-
         # Set up log level
         logger.setLevel(cfg.get('log', 'INFO'))
 
         self.ipcport = int(cfg.get('ipc_port', IPC_PORT))
 
-        # style = app.style()
-        # icon = QtGui.QIcon(style.standardPixmap(QtGui.QStyle.SP_ComputerIcon))
         icon = QtGui.QIcon(':/images/img/oga.png')
 
         QtWidgets.QSystemTrayIcon.__init__(self, icon, parent)
@@ -208,18 +198,16 @@ class OGASystemTray(QtWidgets.QSystemTrayIcon):
         logger.debug('Modules: {}'.format(list(v.name for v in self.modules)))
 
         # Send init to all modules
-        validMods = []
+        valid_mods = []
         for mod in self.modules:
             try:
                 logger.debug('Activating module {}'.format(mod.name))
                 mod.activate()
-                validMods.append(mod)
+                valid_mods.append(mod)
             except Exception as e:
                 logger.exception()
                 logger.error("Activation of {} failed: {}".format(mod.name, utils.exceptionToMessage(e)))
-
-        self.modules[:] = validMods  # copy instead of assignment
-
+        self.modules[:] = valid_mods  # copy instead of assignment
         # If this is running, it's because he have logged in, inform service of this fact
         self.ipc.sendLogin(operations.getCurrentUser(), operations.getSessionLanguage())
 
@@ -259,7 +247,7 @@ class OGASystemTray(QtWidgets.QSystemTrayIcon):
 
     def executeScript(self, script):
         logger.debug('Executing script')
-        script = six.text_type(script.toUtf8()).decode('base64')
+        script = base64.b64decode(script.encode('ascii'))
         th = ScriptExecutorThread(script)
         th.start()
 

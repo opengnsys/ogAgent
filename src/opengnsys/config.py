@@ -26,24 +26,25 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-'''
+"""
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-'''
+"""
 # pylint: disable=unused-wildcard-import, wildcard-import
-from __future__ import unicode_literals
 
-from ConfigParser import SafeConfigParser
+
+from configparser import SafeConfigParser
 
 config = None
 
+
 def readConfig(client=False):
-    '''
+    """
     Reads configuration file
     If client is False, will read ogagent.cfg as configuration
     If client is True, will read ogclient.cfg as configuration
     
     This is this way so we can protect ogagent.cfg against reading for non admin users on all platforms.
-    '''
+    """
     cfg = SafeConfigParser()
     if client is True:
         fname = 'ogclient.cfg'
@@ -55,4 +56,3 @@ def readConfig(client=False):
         return None
     
     return cfg
-    
