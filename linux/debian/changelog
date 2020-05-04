@@ -1,3 +1,9 @@
+ogagent (1.2.0) unstable; urgency=medium
+
+  * Python 3 and Qt 5 compatibility
+
+ -- Ramón M. Gómez <ramongomez@us.es>  Mon, 4 May 2020 18:00:00 +0100
+
 ogagent (1.1.1b) stable; urgency=medium
 
   * Use python-distro to detect the distribution version

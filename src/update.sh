@@ -28,13 +28,13 @@
 
 
 function process {
-    pyuic4 about-dialog.ui -o about_dialog_ui.py -x
-    pyuic4 message-dialog.ui -o message_dialog_ui.py -x
+    pyuic5 about-dialog.ui -o about_dialog_ui.py -x
+    pyuic5 message-dialog.ui -o message_dialog_ui.py -x
 }    
 
 cd $(dirname "$0")
 [ -r VERSION ] && sed -i "s/Version [^<]*/Version $(cat VERSION)/" about-dialog.ui
-pyrcc4 -py3 OGAgent.qrc -o OGAgent_rc.py
+pyrcc5 OGAgent.qrc -o OGAgent_rc.py
 
 
 # process current directory ui's
