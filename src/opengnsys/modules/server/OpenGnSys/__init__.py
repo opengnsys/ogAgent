@@ -54,7 +54,7 @@ def check_secret(fnc):
     """
     def wrapper(*args, **kwargs):
         try:
-            this, path, get_params, post_params, server = args  # @UnusedVariable
+            this, path, get_params, post_params, server = args
             # Accept "status" operation with no arguments or any function with Authorization header
             if fnc.__name__ == 'process_status' and not get_params:
                 return fnc(*args, **kwargs)
@@ -238,8 +238,9 @@ class OpenGnSysWorker(ServerWorker):
             raise Exception('Message processor for "{}" not found'.format(path[0]))
         return operation(path[1:], get_params, post_params)
 
-    @check_secret
+    # Warning: the order of the decorators matters
     @execution_level('status')
+    @check_secret
     def process_status(self, path, get_params, post_params, server):
         """
         Returns client status (OS type or execution status) and login status
@@ -263,8 +264,8 @@ class OpenGnSysWorker(ServerWorker):
             res = {'status': 'UNK'}
         return res
 
-    @check_secret
     @execution_level('halt')
+    @check_secret
     def process_reboot(self, path, get_params, post_params, server):
         """
         Launches a system reboot operation
@@ -282,8 +283,8 @@ class OpenGnSysWorker(ServerWorker):
         threading.Thread(target=rebt).start()
         return {'op': 'launched'}
 
-    @check_secret
     @execution_level('halt')
+    @check_secret
     def process_poweroff(self, path, get_params, post_params, server):
         """
         Launches a system power off operation
@@ -302,8 +303,8 @@ class OpenGnSysWorker(ServerWorker):
         threading.Thread(target=pwoff).start()
         return {'op': 'launched'}
 
-    @check_secret
     @execution_level('full')
+    @check_secret
     def process_script(self, path, get_params, post_params, server):
         """
         Processes an script execution (script should be encoded in base64)
@@ -329,8 +330,8 @@ class OpenGnSysWorker(ServerWorker):
             self.sendClientMessage('script', {'code': script})
         return {'op': 'launched'}
 
-    @check_secret
     @execution_level('full')
+    @check_secret
     def process_logoff(self, path, get_params, post_params, server):
         """
         Closes user session
@@ -340,8 +341,8 @@ class OpenGnSysWorker(ServerWorker):
         self.sendClientMessage('logoff', {})
         return {'op': 'sent to client'}
 
-    @check_secret
     @execution_level('full')
+    @check_secret
     def process_popup(self, path, get_params, post_params, server):
         """
         Shows a message popup on the user's session
