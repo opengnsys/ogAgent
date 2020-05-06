@@ -19,7 +19,6 @@ sed -e "s/name ogagent/name ogagent-opensuse/g" \
     -e "s/release 1/release ${RELEASE}/g" \
     -e "s/chkconfig//g" \
     -e "s/initscripts/insserv/g" \
-    -e "s/PyQt4/python-qt4/g" \
     -e "s/libXScrnSaver/libXss1/g" ogagent-template.spec > ogagent-opensuse-$VERSION.spec
 
 
