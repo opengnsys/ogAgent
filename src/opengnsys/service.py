@@ -30,19 +30,17 @@
 @author: Adolfo Gómez, dkmaster at dkmon dot com
 """
 
-
-from .log import logger
-from .config import readConfig
-from .utils import exceptionToMessage
+import json
+import socket
+import time
 
 from . import ipc
 from . import httpserver
+from .config import readConfig
 from .loader import loadModules
+from .log import logger
+from .utils import exceptionToMessage
 
-import socket
-import time
-import json
-import six
 
 IPC_PORT = 10398
 
@@ -58,21 +56,17 @@ class CommonService(object):
         logger.info('Initializing OpenGnsys Agent')
         
         # Read configuration file before proceding & ensures minimal config is there
-
         self.config = readConfig()
-
-        # Get opengnsys section as dict        
+        # Get opengnsys section as dict
         cfg = dict(self.config.items('opengnsys'))
     
         # Set up log level
         logger.setLevel(cfg.get('log', 'INFO'))
 
-        
         logger.debug('Loaded configuration from opengnsys.cfg:')
         for section in self.config.sections():
             logger.debug('Section {} = {}'.format(section, self.config.items(section)))
-            
-    
+
         if logger.logger.isWindows():
             # Logs will also go to windows event log for services
             logger.logger.serviceLogger = True
@@ -90,15 +84,16 @@ class CommonService(object):
         logger.debug('Modules: {}'.format(list(v.name for v in self.modules)))
         
     def stop(self):
-        '''
+        """
         Requests service termination
-        '''
+        """
         self.isAlive = False
         
     # ********************************
     # * Internal messages processors *
     # ********************************
-    def notifyLogin(self, username):
+    def notifyLogin(self, data):
+        username = data.decode('utf-8')
         for v in self.modules:
             try:
                 logger.debug('Notifying login of user {} to module {}'.format(username, v.name))
@@ -106,7 +101,8 @@ class CommonService(object):
             except Exception as e:
                 logger.error('Got exception {} processing login message on {}'.format(e, v.name))
     
-    def notifyLogout(self, username):
+    def notifyLogout(self, data):
+        username = data.decode('utf-8')
         for v in self.modules:
             try:
                 logger.debug('Notifying logout of user {} to module {}'.format(username, v.name))
@@ -115,7 +111,7 @@ class CommonService(object):
                 logger.error('Got exception {} processing logout message on {}'.format(e, v.name))
                 
     def notifyMessage(self, data):
-        module, message, data = data.split('\0')
+        module, message, data = data.decode('utf-8').split('\0')
         for v in self.modules:
             if v.name == module:  # Case Sensitive!!!!
                 try:
@@ -126,13 +122,12 @@ class CommonService(object):
                     logger.error('Got exception {} processing generic message on {}'.format(e, v.name))
 
         logger.error('Module {} not found, messsage {} not sent'.format(module, message))
-                     
 
     def clientMessageProcessor(self, msg, data):
-        '''
+        """
         Callback, invoked from IPC, on its own thread (not the main thread).
         This thread will "block" communication with agent untill finished, but this should be no problem
-        '''
+        """
         logger.debug('Got message {}'.format(msg))
         
         if msg == ipc.REQ_LOGIN:
@@ -143,14 +138,9 @@ class CommonService(object):
             self.notifyMessage(data)
 
     def initialize(self):
-        # ******************************************
-        # * Initialize listeners, modules, etc...
-        # ******************************************
-        
-        if six.PY3 is False:
-            import threading
-            threading._DummyThread._Thread__stop = lambda x: 42
-        
+        """
+        Initialize listeners, modules, etc...
+        """
         logger.debug('Starting IPC listener at {}'.format(IPC_PORT))
         self.ipc = ipc.ServerIPC(self.ipcport, clientMessageProcessor=self.clientMessageProcessor)
         self.ipc.start()
@@ -203,47 +193,47 @@ class CommonService(object):
     # Methods that CAN BE overridden by agents
     # ****************************************
     def doWait(self, miliseconds):
-        '''
+        """
         Invoked to wait a bit
         CAN be OVERRIDDEN
-        '''
+        """
         time.sleep(float(miliseconds) / 1000)
 
     def notifyStop(self):
-        '''
+        """
         Overridden to log stop
-        '''
+        """
         logger.info('Service is being stopped')
         
     # ***************************************************
     # * Helpers, convenient methods to facilitate comms *
     # ***************************************************
     def sendClientMessage(self, toModule, message, data):
-        '''
+        """
         Sends a message to the clients using IPC
         The data is converted to json, so ensure that it is serializable.
         All IPC is asynchronous, so if you expect a response, this will be sent by client using another message
-        
+
         @param toModule: Module that will receive this message
         @param message: Message to send
-        @param data: data to send 
-        '''
+        @param data: data to send
+        """
         self.ipc.sendMessageMessage('\0'.join((toModule, message, json.dumps(data))))
         
     def sendScriptMessage(self, script):
-        '''
+        """
         Sends an script to be executed by client
-        '''
+        """
         self.ipc.sendScriptMessage(script)
         
     def sendLogoffMessage(self):
-        '''
+        """
         Sends a logoff message to client
-        '''
+        """
         self.ipc.sendLoggofMessage()
         
     def sendPopupMessage(self, title, message):
-        '''
-        Sends a poup box to be displayed by client
-        '''
+        """
+        Sends a popup box to be displayed by client
+        """
         self.ipc.sendPopupMessage(title, message)

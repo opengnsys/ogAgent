@@ -32,7 +32,6 @@
 
 
 # Pydev can't parse "six.moves.xxxx" because it is loaded lazy
-import six
 from six.moves.socketserver import ThreadingMixIn  # @UnresolvedImport
 from six.moves.BaseHTTPServer import BaseHTTPRequestHandler  # @UnresolvedImport
 from six.moves.BaseHTTPServer import HTTPServer  # @UnresolvedImport
@@ -46,6 +45,7 @@ from .utils import exceptionToMessage
 from .certs import createSelfSignedCert
 from .log import logger
 
+
 class HTTPServerHandler(BaseHTTPRequestHandler):
     service = None
     protocol_version = 'HTTP/1.0'
@@ -56,7 +56,7 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps({'error': message}))
+        self.wfile.write(str.encode(json.dumps({'error': message})))
         return
 
     def sendJsonResponse(self, data):
@@ -66,12 +66,12 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', len(data))
         self.end_headers()
         # Send the html message
-        self.wfile.write(data)
-        
-    
-    # parseURL
+        self.wfile.write(str.encode(data))
+
     def parseUrl(self):
-        # Very simple path & params splitter
+        """
+        Very simple path & params splitter
+        """
         path = self.path.split('?')[0][1:].split('/')
         
         try:
@@ -81,14 +81,14 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
 
         for v in self.service.modules:
             if v.name == path[0]:  # Case Sensitive!!!!
-                return (v, path[1:], params)
+                return v, path[1:], params
             
-        return (None, path, params)
+        return None, path, params
     
     def notifyMessage(self, module, path, getParams, postParams):
-        '''
+        """
         Locates witch module will process the message based on path (first folder on url path)
-        '''
+        """
         try:
             data = module.processServerMessage(path, getParams, postParams, self)
             self.sendJsonResponse(data)
@@ -114,7 +114,6 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
             self.sendJsonError(500, exceptionToMessage(e))
             
         self.notifyMessage(module, path, getParams, postParams)
-            
 
     def log_error(self, fmt, *args):
         logger.error('HTTP ' + fmt % args)
@@ -125,6 +124,7 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
 
 class HTTPThreadingServer(ThreadingMixIn, HTTPServer):
     pass
+
 
 class HTTPServerThread(threading.Thread):
     def __init__(self, address, service):
@@ -146,5 +146,3 @@ class HTTPServerThread(threading.Thread):
 
     def run(self):
         self.server.serve_forever()
-
-    
