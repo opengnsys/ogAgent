@@ -31,6 +31,7 @@
 """
 
 
+import base64
 import os
 import random
 import shutil
@@ -316,7 +317,7 @@ class OpenGnSysWorker(ServerWorker):
         """
         logger.debug('Processing script request')
         # Decoding script (Windows scripts need a subprocess call per line)
-        script = urllib.parse.unquote(post_params.get('script').decode('base64')).decode('utf8')
+        script = urllib.parse.unquote(base64.b64decode(post_params.get('script')).decode('utf-8'))
         if operations.os_type == 'Windows':
             script = 'import subprocess; {0}'.format(
                 ';'.join(['subprocess.check_output({0},shell=True)'.format(repr(c)) for c in script.split('\n')]))
