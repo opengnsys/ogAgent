@@ -25,21 +25,18 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
+"""
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-'''
-# pylint: disable=unused-wildcard-import,wildcard-import
+"""
 
 
-# Pydev can't parse "six.moves.xxxx" because it is loaded lazy
+import json
+import ssl
+import threading
 from six.moves.socketserver import ThreadingMixIn  # @UnresolvedImport
 from six.moves.BaseHTTPServer import BaseHTTPRequestHandler  # @UnresolvedImport
 from six.moves.BaseHTTPServer import HTTPServer  # @UnresolvedImport
 from six.moves.urllib.parse import unquote  # @UnresolvedImport
-
-import json
-import threading
-import ssl
 
 from .utils import exceptionToMessage
 from .certs import createSelfSignedCert
@@ -63,7 +60,7 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         data = json.dumps(data)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Content-Length', len(data))
+        self.send_header('Content-Length', str(len(data)))
         self.end_headers()
         # Send the html message
         self.wfile.write(str.encode(data))
@@ -85,12 +82,12 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
             
         return None, path, params
     
-    def notifyMessage(self, module, path, getParams, postParams):
+    def notifyMessage(self, module, path, get_params, post_params):
         """
         Locates witch module will process the message based on path (first folder on url path)
         """
         try:
-            data = module.processServerMessage(path, getParams, postParams, self)
+            data = module.processServerMessage(path, get_params, post_params, self)
             self.sendJsonResponse(data)
         except Exception as e:
             logger.exception()
@@ -102,18 +99,19 @@ class HTTPServerHandler(BaseHTTPRequestHandler):
         self.notifyMessage(module, path, params, None)
         
     def do_POST(self):
-        module, path, getParams = self.parseUrl()
+        module, path, get_params = self.parseUrl()
+        post_params = None
 
         # Tries to get JSON content (UTF-8 encoded)
         try:
-            length = int(self.headers.getheader('content-length'))
+            length = int(self.headers.get('content-length'))
             content = self.rfile.read(length).decode('utf-8')
-            logger.debug('length: {}, content >>{}<<'.format(length, content))
-            postParams = json.loads(content)
+            logger.debug('length: {0}, content >>{1}<<'.format(length, content))
+            post_params = json.loads(content)
         except Exception as e:
             self.sendJsonError(500, exceptionToMessage(e))
             
-        self.notifyMessage(module, path, getParams, postParams)
+        self.notifyMessage(module, path, get_params, post_params)
 
     def log_error(self, fmt, *args):
         logger.error('HTTP ' + fmt % args)
