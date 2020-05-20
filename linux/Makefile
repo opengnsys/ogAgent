@@ -68,6 +68,4 @@ ifeq ($(DISTRO),rh)
 endif
 
 uninstall:
-	rm -rf $(LIBDIR)
-	# rm -f $(BINDIR)/ogagent
-	rm -rf $(CFGDIR)
+	rm -rf $(LIBDIR) $(CFGDIR) $(BINDIR)/ogagent $(INITDIR)/ogagent
