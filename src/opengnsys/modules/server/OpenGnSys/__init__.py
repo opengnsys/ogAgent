@@ -42,6 +42,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from configparser import NoOptionError
 from opengnsys import REST, operations, VERSION
 from opengnsys.log import logger
 from opengnsys.scriptThread import ScriptExecutorThread
@@ -114,21 +115,27 @@ class OpenGnSysWorker(ServerWorker):
         """
         Sends OGAgent activation notification to OpenGnsys server
         """
-        t = 0
+        e = None  # Error info
+        t = 0  # Count of time
         # Generate random secret to send on activation
         self.random = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(self.length))
         # Ensure cfg has required configuration variables or an exception will be thrown
-        url = self.service.config.get('opengnsys', 'remote')
+        try:
+            url = self.service.config.get('opengnsys', 'remote')
+        except NoOptionError as e:
+            logger.error("Configuration error: {}".format(e))
+            raise e
         self.REST = REST(url)
         # Execution level ('full' by default)
         try:
             self.exec_level = self.service.config.get('opengnsys', 'level')
-        except:
+        except NoOptionError:
             self.exec_level = 'full'
         # Get network interfaces until they are active or timeout (5 minutes)
         for t in range(0, 300):
             try:
-                self.interface = list(operations.getNetworkInfo())[0]  # Get first network interface
+                # Get the first network interface
+                self.interface = list(operations.getNetworkInfo())[0]
             except Exception as e:
                 # Wait 1 sec. and retry
                 time.sleep(1)
