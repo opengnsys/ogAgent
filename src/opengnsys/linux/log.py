@@ -26,18 +26,16 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-'''
+"""
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-'''
-from __future__ import unicode_literals
+"""
 
 import logging
 import os
 import tempfile
-import six
 
-# Valid logging levels, from UDS Broker (uds.core.utils.log)
-OTHER, DEBUG, INFO, WARN, ERROR, FATAL = (10000 * (x + 1) for x in six.moves.xrange(6))  # @UndefinedVariable
+# Logging levels
+OTHER, DEBUG, INFO, WARN, ERROR, FATAL = (10000 * (x + 1) for x in range(6))
 
 
 class LocalLogger(object):
@@ -46,7 +44,7 @@ class LocalLogger(object):
         # service wil get c:\windows\temp, while user will get c:\users\XXX\temp
         # Try to open logger at /var/log path
         # If it fails (access denied normally), will try to open one at user's home folder, and if
-        # agaim it fails, open it at the tmpPath
+        # again it fails, open it at the tmpPath
 
         for logDir in ('/var/log', os.path.expanduser('~'), tempfile.gettempdir()):
             try:

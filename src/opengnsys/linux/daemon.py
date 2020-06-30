@@ -25,18 +25,16 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
+"""
 @author: : http://www.jejik.com/authors/sander_marechal/
 @see: : http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
-'''
+"""
 
-from __future__ import unicode_literals
-import sys
-import os
-import time
 import atexit
+import os
+import sys
+import time
 from opengnsys.log import logger
-
 from signal import SIGTERM
 
 
@@ -89,7 +87,7 @@ class Daemon:
         sys.stderr.flush()
         si = open(self.stdin, 'r')
         so = open(self.stdout, 'a+')
-        se = open(self.stderr, 'a+', 0)
+        se = open(self.stderr, 'a+')
         os.dup2(si.fileno(), sys.stdin.fileno())
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
