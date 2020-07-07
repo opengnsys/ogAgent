@@ -130,7 +130,7 @@ class MessagesProcessor(QtCore.QThread):
                 if msg is None:
                     break
                 msg_id, data = msg
-                logger.debug('Got Message on User Space: {}:{}'.format(msgId, data))
+                logger.debug('Got Message on User Space: {}:{}'.format(msg_id, data))
                 if msg_id == ipc.MSG_MESSAGE:
                     module, message, data = data.split('\0')
                     self.message.emit((module, message, data))
