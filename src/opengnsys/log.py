@@ -62,7 +62,7 @@ class Logger(object):
         Sets log level filter (minimum level required for a log message to be processed)
         :param level: Any message with a level below this will be filtered out
         """
-        if isinstance(level, six.string_types):
+        if isinstance(level, str):
             level = _levelName.get(level, INFO)
             
         self.logLevel = level  # Ensures level is an integer or fails

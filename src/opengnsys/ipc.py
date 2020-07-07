@@ -128,7 +128,7 @@ class ClientProcessor(threading.Thread):
                         # Client disconnected
                         self.running = False
                         break
-                    buf = int(b)  # Empty buffer, this is set as non-blocking
+                    buf = int.from_bytes(b, 'big')  # Empty buffer, this is set as non-blocking
                     if state is None:
                         if buf in (REQ_MESSAGE, REQ_LOGIN, REQ_LOGOUT):
                             logger.debug('State set to {}'.format(buf))
@@ -153,7 +153,7 @@ class ClientProcessor(threading.Thread):
                         recv_data = b''
                         continue
                     elif state == ST_RECEIVING:
-                        recv_data += bytes(buf)
+                        recv_data += bytes([buf])
                         msg_len -= 1
                         if msg_len == 0:
                             self.processRequest(recv_msg, recv_data)
@@ -315,7 +315,7 @@ class ClientIPC(threading.Thread):
             data = str.encode(data)
 
         l = len(data)
-        msg = bytes(msg) + bytes(l & 0xFF) + bytes(l >> 8) + data
+        msg = bytes([msg]) + bytes([l & 0xFF]) + bytes([l >> 8]) + data
         self.clientSocket.sendall(msg)
 
     def sendLogin(self, username, language):
