@@ -25,16 +25,16 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
+"""
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-'''
+"""
 
 
+import json
+import queue
 import socket
 import threading
-import six
 import traceback
-import json
 
 from opengnsys.utils import toUnicode
 from opengnsys.log import logger
@@ -59,7 +59,7 @@ from opengnsys.log import logger
 # BYTE
 #  0           1-2                        3 4 ...
 # MSG_ID   DATA_LENGTH (little endian)    Data (can be 0 length)
-# With a previos "MAGIC" header in fron of each message
+# With a previous "MAGIC" header in front of each message
 
 # Client messages
 MSG_LOGOFF = 0xA1  # Request log off from an user
@@ -84,7 +84,7 @@ REV_DICT = {
     REQ_MESSAGE: 'REQ_MESSAGE'
 }
 
-MAGIC = b'\x4F\x47\x41\x00'  # OGA in hexa with a padded 0 to the right
+MAGIC = b'\x4F\x47\x41\x00'  # OGA in hex with a padded 0 to the right
 
 
 # States for client processor
@@ -99,10 +99,10 @@ class ClientProcessor(threading.Thread):
         self.parent = parent
         self.clientSocket = clientSocket
         self.running = False
-        self.messages = six.moves.queue.Queue(32)  # @UndefinedVariable
+        self.messages = queue.Queue(32)
 
     def stop(self):
-        logger.debug('Stoping client processor')
+        logger.debug('Stopping client processor')
         self.running = False
 
     def processRequest(self, msg, data):
@@ -117,6 +117,7 @@ class ClientProcessor(threading.Thread):
         state = None
         recv_msg = None
         recv_data = None
+        msg_len = 0
         while self.running:
             try:
                 counter = 1024
@@ -127,7 +128,7 @@ class ClientProcessor(threading.Thread):
                         # Client disconnected
                         self.running = False
                         break
-                    buf = six.byte2int(b)  # Empty buffer, this is set as non-blocking
+                    buf = int(b)  # Empty buffer, this is set as non-blocking
                     if state is None:
                         if buf in (REQ_MESSAGE, REQ_LOGIN, REQ_LOGOUT):
                             logger.debug('State set to {}'.format(buf))
@@ -152,7 +153,7 @@ class ClientProcessor(threading.Thread):
                         recv_data = b''
                         continue
                     elif state == ST_RECEIVING:
-                        recv_data += six.int2byte(buf)
+                        recv_data += bytes(buf)
                         msg_len -= 1
                         if msg_len == 0:
                             self.processRequest(recv_msg, recv_data)
@@ -173,7 +174,7 @@ class ClientProcessor(threading.Thread):
 
             try:
                 msg = self.messages.get(block=True, timeout=1)
-            except six.moves.queue.Empty:  # No message got in time @UndefinedVariable
+            except queue.Empty:  # No message got in time @UndefinedVariable
                 continue
 
             logger.debug('Got message {}={}'.format(msg, REV_DICT.get(msg[0])))
@@ -181,7 +182,7 @@ class ClientProcessor(threading.Thread):
             try:
                 m = msg[1] if msg[1] is not None else b''
                 l = len(m)
-                data = MAGIC + six.int2byte(msg[0]) + six.int2byte(l & 0xFF) + six.int2byte(l >> 8) + m
+                data = MAGIC + bytes(msg[0]) + bytes(l & 0xFF) + bytes(l >> 8) + m
                 try:
                     self.clientSocket.sendall(data)
                 except socket.error as e:
@@ -220,20 +221,20 @@ class ServerIPC(threading.Thread):
         for t in self.threads:
             t.join()
 
-    def sendMessage(self, msgId, msgData):
-        '''
+    def sendMessage(self, msg_id, msg_data):
+        """
         Notify message to all listening threads
-        '''
-        logger.debug('Sending message {}({}),{} to all clients'.format(msgId, REV_DICT.get(msgId), msgData))
+        """
+        logger.debug('Sending message {}({}),{} to all clients'.format(msg_id, REV_DICT.get(msg_id), msg_data))
 
         # Convert to bytes so length is correctly calculated
-        if isinstance(msgData, six.text_type):
-            msgData = msgData.encode('utf8')
+        if isinstance(msg_data, str):
+            msg_data = str.encode(msg_data)
 
         for t in self.threads:
             if t.isAlive():
                 logger.debug('Sending to {}'.format(t))
-                t.messages.put((msgId, msgData))
+                t.messages.put((msg_id, msg_data))
 
     def sendLoggofMessage(self):
         self.sendMessage(MSG_LOGOFF, '')
@@ -242,15 +243,15 @@ class ServerIPC(threading.Thread):
         self.sendMessage(MSG_MESSAGE, message)
 
     def sendPopupMessage(self, title, message):
-        self.sendMessage(MSG_POPUP, {'title':title, 'message':message})
+        self.sendMessage(MSG_POPUP, {'title': title, 'message': message})
 
     def sendScriptMessage(self, script):
         self.sendMessage(MSG_SCRIPT, script)
 
     def cleanupFinishedThreads(self):
-        '''
+        """
         Cleans up current threads list
-        '''
+        """
         aliveThreads = []
         for t in self.threads:
             if t.isAlive():
@@ -262,7 +263,7 @@ class ServerIPC(threading.Thread):
         self.running = True
 
         self.serverSocket.bind(('localhost', self.port))
-        self.serverSocket.setblocking(1)
+        self.serverSocket.setblocking(True)
         self.serverSocket.listen(4)
 
         while True:
@@ -289,7 +290,7 @@ class ClientIPC(threading.Thread):
         self.port = listenPort
         self.running = False
         self.clientSocket = None
-        self.messages = six.moves.queue.Queue(32)  # @UndefinedVariable
+        self.messages = queue.Queue(32)  # @UndefinedVariable
 
         self.connect()
 
@@ -300,7 +301,7 @@ class ClientIPC(threading.Thread):
         while self.running:
             try:
                 return self.messages.get(timeout=1)
-            except six.moves.queue.Empty:  # @UndefinedVariable
+            except queue.Empty:
                 continue
 
         return None
@@ -310,34 +311,34 @@ class ClientIPC(threading.Thread):
         if data is None:
             data = b''
 
-        if isinstance(data, six.text_type):  # Convert to bytes if necessary
-            data = data.encode('utf-8')
+        if isinstance(data, str):
+            data = str.encode(data)
 
         l = len(data)
-        msg = six.int2byte(msg) + six.int2byte(l & 0xFF) + six.int2byte(l >> 8) + data
+        msg = bytes(msg) + bytes(l & 0xFF) + bytes(l >> 8) + data
         self.clientSocket.sendall(msg)
 
     def sendLogin(self, username, language):
-        self.sendRequestMessage(REQ_LOGIN, username+','+language)
+        self.sendRequestMessage(REQ_LOGIN, username + ',' + language)
 
     def sendLogout(self, username):
         self.sendRequestMessage(REQ_LOGOUT, username)
 
     def sendMessage(self, module, message, data=None):
-        '''
+        """
         Sends a message "message" with data (data will be encoded as json, so ensure that it is serializable)
         @param module: Module that will receive this message
         @param message: Message to send. This message is "customized", and understand by modules
         @param data: Data to be send as message companion
-        '''
+        """
         msg = '\0'.join((module, message, json.dumps(data)))
         self.sendRequestMessage(REQ_MESSAGE, msg)
 
     def messageReceived(self):
-        '''
+        """
         Override this method to automatically get notified on new message
         received. Message is at self.messages queue
-        '''
+        """
         pass
 
     def receiveBytes(self, number):
@@ -420,4 +421,3 @@ class ClientIPC(threading.Thread):
             self.clientSocket.close()
         except Exception:
             pass  # If can't close, nothing happens, just end thread
-

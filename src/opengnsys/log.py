@@ -26,22 +26,21 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-'''
+"""
 @author: Adolfo Gómez, dkmaster at dkmon dot com
-'''
+"""
 
 
-import traceback
 import sys
-import six
+import traceback
 
 if sys.platform == 'win32':
-    from opengnsys.windows.log import LocalLogger  # @UnusedImport
+    from opengnsys.windows.log import LocalLogger
 else:
-    from opengnsys.linux.log import LocalLogger  # @Reimport
+    from opengnsys.linux.log import LocalLogger
 
 # Valid logging levels, from UDS Broker (uds.core.utils.log)
-OTHER, DEBUG, INFO, WARN, ERROR, FATAL = (10000 * (x + 1) for x in six.moves.xrange(6))  # @UndefinedVariable
+OTHER, DEBUG, INFO, WARN, ERROR, FATAL = (10000 * (x + 1) for x in range(6))
 
 _levelName = {
     'OTHER': OTHER,
@@ -52,16 +51,17 @@ _levelName = {
     'FATAL': FATAL
 }
 
+
 class Logger(object):
     def __init__(self):
         self.logLevel = INFO
         self.logger = LocalLogger()
 
     def setLevel(self, level):
-        '''
+        """
         Sets log level filter (minimum level required for a log message to be processed)
         :param level: Any message with a level below this will be filtered out
-        '''
+        """
         if isinstance(level, six.string_types):
             level = _levelName.get(level, INFO)
             
