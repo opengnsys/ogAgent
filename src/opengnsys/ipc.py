@@ -182,7 +182,7 @@ class ClientProcessor(threading.Thread):
             try:
                 m = msg[1] if msg[1] is not None else b''
                 l = len(m)
-                data = MAGIC + bytes(msg[0]) + bytes(l & 0xFF) + bytes(l >> 8) + m
+                data = MAGIC + bytes([msg[0]]) + bytes([l & 0xFF]) + bytes([l >> 8]) + m
                 try:
                     self.clientSocket.sendall(data)
                 except socket.error as e:

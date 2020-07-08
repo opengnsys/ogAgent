@@ -132,17 +132,14 @@ class MessagesProcessor(QtCore.QThread):
                 msg_id, data = msg
                 logger.debug('Got Message on User Space: {}:{}'.format(msg_id, data))
                 if msg_id == ipc.MSG_MESSAGE:
-                    module, message, data = data.split('\0')
+                    module, message, data = data.decode('utf-8').split('\0')
                     self.message.emit((module, message, data))
                 elif msg_id == ipc.MSG_LOGOFF:
                     self.logoff.emit()
                 elif msg_id == ipc.MSG_SCRIPT:
                     self.script.emit(data.decode('utf-8'))
             except Exception as e:
-                try:
-                    logger.error('Got error on IPC thread {}'.format(utils.exceptionToMessage(e)))
-                except:
-                    logger.error('Got error on IPC thread (an unicode error??)')
+                logger.error('Got error on IPC thread {}'.format(utils.exceptionToMessage(e)))
 
         if self.ipc.running is False and self.running is True:
             logger.warn('Lost connection with Service, closing program')
