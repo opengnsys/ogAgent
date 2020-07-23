@@ -115,9 +115,9 @@ class MessagesProcessor(QtCore.QThread):
     def isAlive(self):
         return self.ipc is not None
 
-    def sendLogin(self, userName, language):
+    def sendLogin(self, user_data):
         if self.ipc:
-            self.ipc.sendLogin(userName, language)
+            self.ipc.sendLogin(user_data)
 
     def sendLogout(self, userName):
         if self.ipc:
@@ -221,7 +221,8 @@ class OGASystemTray(QtGui.QSystemTrayIcon):
         self.modules[:] = validMods  # copy instead of assignment
 
         # If this is running, it's because he have logged in, inform service of this fact
-        self.ipc.sendLogin(operations.getCurrentUser(), operations.getSessionLanguage())
+        self.ipc.sendLogin((operations.getCurrentUser(), operations.getSessionLanguage(),
+                            operations.get_session_type()))
 
     def deinitialize(self):
         for mod in reversed(self.modules):  # Deinitialize reversed of initialization

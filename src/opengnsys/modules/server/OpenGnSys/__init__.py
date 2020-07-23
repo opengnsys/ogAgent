@@ -81,6 +81,7 @@ class OpenGnSysWorker(ServerWorker):
     interface = None  # Bound interface for OpenGnsys
     REST = None  # REST object
     logged_in = False  # User session flag
+    session_type = ''  # User session type
     locked = {}
     random = None  # Random string for secure connections
     length = 32  # Random string length
@@ -162,10 +163,11 @@ class OpenGnSysWorker(ServerWorker):
         """
         Sends session login notification to OpenGnsys server
         """
-        user, sep, language = data.partition(',')
-        logger.debug('Received login for {} with language {}'.format(user, language))
+        user, language, self.session_type = tuple(data.split(','))
+        logger.debug('Received login for {0} using {2} with language {1}'.format(user, language, self.session_type))
         self.logged_in = True
         self.REST.sendMessage('ogagent/loggedin', {'ip': self.interface.ip, 'user': user, 'language': language,
+                                                   'session': self.session_type,
                                                    'ostype': operations.os_type, 'osversion': operations.os_version})
 
     def onLogout(self, user):
@@ -213,7 +215,7 @@ class OpenGnSysWorker(ServerWorker):
         :param server:
         :return: JSON object {"status": "status_code", "loggedin": boolean}
         """
-        res = {'status': '', 'loggedin': self.logged_in}
+        res = {'status': '', 'loggedin': self.logged_in, 'session': self.session_type}
         if platform.system() == 'Linux':        # GNU/Linux
             # Check if it's OpenGnsys Client.
             if os.path.exists('/scripts/oginit'):

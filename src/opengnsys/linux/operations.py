@@ -282,6 +282,14 @@ def getSessionLanguage():
     return locale.getdefaultlocale()[0]
 
 
+def get_session_type():
+    """
+    Returns the user's session type (xrdp, wayland, x11, tty,...)
+    :return: string
+    """
+    return 'xrdp' if 'XRDP_SESSION' in os.environ else os.environ.get('XDG_SESSION_TYPE', 'unknown').lower()
+
+
 def showPopup(title, message):
     '''
     Displays a message box on user's session (during 1 min).
