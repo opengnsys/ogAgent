@@ -254,6 +254,14 @@ def getSessionLanguage():
     return locale.getdefaultlocale()[0]
 
 
+def get_session_type():
+    """
+    returns the user's session type (Local session, RDP,...)
+    :return: string
+    """
+    return os.environ.get('SESSIONNAME').lower()
+
+
 def showPopup(title, message):
     '''
     Displays a message box on user's session (during 1 min).

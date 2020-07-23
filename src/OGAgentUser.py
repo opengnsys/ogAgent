@@ -108,9 +108,9 @@ class MessagesProcessor(QtCore.QThread):
     def isAlive(self):
         return self.ipc is not None
 
-    def sendLogin(self, username, language):
+    def sendLogin(self, user_data):
         if self.ipc:
-            self.ipc.sendLogin(username, language)
+            self.ipc.sendLogin(user_data)
 
     def sendLogout(self, username):
         if self.ipc:
@@ -206,7 +206,8 @@ class OGASystemTray(QtWidgets.QSystemTrayIcon):
                 logger.error("Activation of {} failed: {}".format(mod.name, utils.exceptionToMessage(e)))
         self.modules[:] = valid_mods  # copy instead of assignment
         # If this is running, it's because he have logged in, inform service of this fact
-        self.ipc.sendLogin(operations.getCurrentUser(), operations.getSessionLanguage())
+        self.ipc.sendLogin((operations.getCurrentUser(), operations.getSessionLanguage(),
+                            operations.get_session_type()))
 
     def deinitialize(self):
         for mod in reversed(self.modules):  # Deinitialize reversed of initialization

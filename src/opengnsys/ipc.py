@@ -318,8 +318,8 @@ class ClientIPC(threading.Thread):
         msg = bytes([msg]) + bytes([l & 0xFF]) + bytes([l >> 8]) + data
         self.clientSocket.sendall(msg)
 
-    def sendLogin(self, username, language):
-        self.sendRequestMessage(REQ_LOGIN, username + ',' + language)
+    def sendLogin(self, user_data):
+        self.sendRequestMessage(REQ_LOGIN, ','.join(user_data))
 
     def sendLogout(self, username):
         self.sendRequestMessage(REQ_LOGOUT, username)

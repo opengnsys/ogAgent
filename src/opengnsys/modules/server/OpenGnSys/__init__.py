@@ -107,6 +107,7 @@ class OpenGnSysWorker(ServerWorker):
     interface = None  # Bound interface for OpenGnsys
     REST = None  # REST object
     user = []  # User sessions
+    session_type = ''  # User session type
     random = None  # Random string for secure connections
     length = 32  # Random string length
     exec_level = None  # Execution level (permitted operations)
@@ -201,10 +202,11 @@ class OpenGnSysWorker(ServerWorker):
         """
         Sends session login notification to OpenGnsys server
         """
-        user, sep, language = data.partition(',')
-        logger.debug('Received login for {} with language {}'.format(user, language))
+        user, language, self.session_type = tuple(data.split(','))
+        logger.debug('Received login for {0} using {2} with language {1}'.format(user, language, self.session_type))
         self.user.append(user)
         self.REST.sendMessage('ogagent/loggedin', {'ip': self.interface.ip, 'user': user, 'language': language,
+                                                   'session': self.session_type,
                                                    'ostype': operations.os_type, 'osversion': operations.os_version})
 
     def onLogout(self, user):
@@ -261,7 +263,8 @@ class OpenGnSysWorker(ServerWorker):
         st = {'linux': 'LNX', 'macos': 'OSX', 'windows': 'WIN'}
         try:
             # Standard status
-            res = {'status': st[operations.os_type.lower()], 'loggedin': len(self.user) > 0}
+            res = {'status': st[operations.os_type.lower()], 'loggedin': len(self.user) > 0,
+                   'session': self.session_type}
             # Detailed status
             if get_params.get('detail', 'false') == 'true':
                 res.update({'agent_version': VERSION, 'os_version': operations.os_version, 'sys_load': os.getloadavg()})

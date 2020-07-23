@@ -57,13 +57,13 @@ except ImportError:
 
 import os
 from distutils.core import setup
-
+import py2exe
 import sys
 
 # Reading version file:
 try:
     with open('VERSION', 'r') as v:
-        VERSION = v.read().split()
+        VERSION = v.read().rstrip()
 except IOError:
     VERSION = '1.1.0'
 
