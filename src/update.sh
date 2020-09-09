@@ -30,13 +30,21 @@
 function process {
     pyuic5 about-dialog.ui -o about_dialog_ui.py -x
     pyuic5 message-dialog.ui -o message_dialog_ui.py -x
+}
+
+function process_qt4 {
+    sed 's/OGAgent.qrc/OGAgent_qt4.qrc/' about-dialog.ui > about-dialog-qt4.ui
+    pyuic4 about-dialog-qt4.ui -o about_dialog_qt4_ui.py -x
+    pyuic4 message-dialog.ui -o message_dialog_qt4_ui.py -x
 }    
 
 cd $(dirname "$0")
 [ -r VERSION ] && sed -i "s/Version [^<]*/Version $(cat VERSION)/" about-dialog.ui
 pyrcc5 OGAgent.qrc -o OGAgent_rc.py
+[ "$(command -v pyrcc4)" ] && pyrcc4 -py3 OGAgent.qrc -o OGAgent_qt4_rc.py
 
 
 # process current directory ui's
 process
+[ "$(command -v pyuic4)" ] && process_qt4
 

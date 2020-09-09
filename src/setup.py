@@ -65,7 +65,7 @@ try:
     with open('VERSION', 'r') as v:
         VERSION = v.read().rstrip()
 except IOError:
-    VERSION = '1.1.0'
+    VERSION = '1.2.0'
 
 sys.argv.append('py2exe')
 
@@ -99,7 +99,7 @@ class Target:
 # thus don't need to run in a console.
 
 
-udsservice = Target(
+ogaservice = Target(
     description='OpenGnsys Agent Service',
     modules=['opengnsys.windows.OGAgentService'],
     icon_resources=[(0, 'img\\oga.ico'), (1, 'img\\oga.ico')],
@@ -112,7 +112,7 @@ HIDDEN_BY_SIX = ['SocketServer', 'SimpleHTTPServer', 'urllib']
 setup(
     windows=[
         {
-            'script': 'OGAgentUser.py',
+            'script': 'OGAgentUser-qt4.py',
             'icon_resources': [(0, 'img\\oga.ico'), (1, 'img\\oga.ico')]
         },
     ],
@@ -121,7 +121,7 @@ setup(
             'script': 'OGAServiceHelper.py'
         }
     ],
-    service=[udsservice],
+    service=[ogaservice],
     data_files=[('', [get_requests_cert_file()]), ('cfg', ['cfg/ogagent.cfg', 'cfg/ogclient.cfg'])],
     options={
         'py2exe': {
